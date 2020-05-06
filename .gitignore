@@ -1,0 +1,7 @@
+target
+**/target
+**/*.rs.bk
+todo_sync_config.yaml
+.terraform
+bootstrap
+*.zip
