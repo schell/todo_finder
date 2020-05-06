@@ -916,13 +916,27 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "todo_finder_lib",
+ "todo_finder_lib 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",
 ]
 
 [[package]]
 name = "todo_finder_lib"
 version = "0.1.0"
+dependencies = [
+ "hyper",
+ "hyper-tls",
+ "nom",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "todo_finder_lib"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89a05f03bfdd4782a10763b7e1374a1b214873828b3f47d267eb02d881e3bd27"
 dependencies = [
  "hyper",
  "hyper-tls",
