@@ -1,11 +1,11 @@
 [package]
-name = "todo_cli"
+name = "todo_finder"
 version = "0.1.0"
 authors = ["Schell Scivally <efsubenovex@gmail.com>"]
 edition = "2018"
 license = "MIT"
 description = "An executable for finding and parsing TODOs"
-documentation = "https://docs.rs/todo_lib/"
+documentation = "https://docs.rs/todo_finder/"
 repository = "https://github.com/schell/todo_finder"
 readme = "../README.md"
 
@@ -20,5 +20,5 @@ pretty_env_logger = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8.11"
-todo_lib = { path = "../todo_lib" }
+todo_finder_lib = { path = "../todo_finder_lib" }
 tokio = { version = "0.2", features = ["full"] }

@@ -906,7 +906,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "todo_cli"
+name = "todo_finder"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -916,12 +916,12 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "todo_lib",
+ "todo_finder_lib",
  "tokio",
 ]
 
 [[package]]
-name = "todo_lib"
+name = "todo_finder_lib"
 version = "0.1.0"
 dependencies = [
  "hyper",

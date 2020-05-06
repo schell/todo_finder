@@ -1,5 +1,5 @@
 [workspace]
 members = [
-  "todo_lib",
-  "todo_cli",
+  "todo_finder_lib",
+  "todo_finder",
 ]

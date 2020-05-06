@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use std::{fs::File, io::prelude::*, path::Path};
-use todo_lib::{github, parser::IssueMap};
+use todo_finder_lib::{github, parser::IssueMap};
 
 #[cfg(test)]
 mod cli_tests {}
@@ -10,8 +10,8 @@ async fn main() {
     let cwd = std::env::current_dir().expect("could not get current dir");
     let cwd_str = cwd.to_str().expect("could not convert cwd path");
 
-    let app = App::new("ts")
-        .version("0.0.0")
+    let app = App::new("todo_finder")
+        .version("0.1.0")
         .author("Schell Carl Scivally")
         .about("Finds TODOs in source code")
         .arg(
