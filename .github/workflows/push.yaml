@@ -57,8 +57,8 @@ jobs:
     - name: track_todos
       if: github.ref == 'refs/heads/master'
       run: |
-        cargo install --debug --force --path ./todo_cli --root $HOME/.cargo/
-        ~/.cargo/bin/todo_cli -o github --auth ${{ github.token }} -l todo -e test_data
+        cargo install --debug --force --path ./todo_finder --root $HOME/.cargo/
+        ~/.cargo/bin/todo_finder -o github --auth ${{ github.token }} -l todo -e test_data
 
     - name: release_lib
       if: github.ref == 'refs/heads/release'

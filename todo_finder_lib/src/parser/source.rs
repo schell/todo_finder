@@ -229,7 +229,7 @@ mod test_my_assumptions {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let (borders, single) = (vec!["|".to_string()], "--".to_string());
 ///
 /// assert_eq!(
@@ -273,7 +273,7 @@ pub fn comment_start(
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// assert_eq!(assignee("(mitchellwrosen)"), Ok(("", "mitchellwrosen")))
 /// ```
 pub fn assignee(i: &str) -> IResult<&str, &str> {
@@ -329,7 +329,7 @@ pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let bytes = "Sandy doesn't like fmap.fmap for some reason. Other sentence.\n";
 /// assert_eq!(
 ///     sentence_and_terminator(bytes),
@@ -376,7 +376,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// assert_eq!(
 ///     trim_borders(&vec!["*".into()], " * I like veggies *\n"),
 ///     "I like veggies"
@@ -398,7 +398,7 @@ pub fn trim_borders<'a>(borders: &Vec<String>, i: &'a str) -> &'a str {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let bytes = "sleep for variable time depending on exact error? Ionno know.\n\n";
 /// assert_eq!(
 ///     title_and_rest_till_eol(vec![])(bytes),
@@ -498,7 +498,7 @@ pub fn single_line_todo(
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let haskell_parser = multi_line_todo(vec!["|".into()], "{-".into(), "-}".into());
 ///
 /// let bytes = "{- | TODO: My todo title.
@@ -639,7 +639,7 @@ pub struct ParsedTodo<'a> {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let haskell_parser = parse_todo(TodoParserConfig {
 ///     singles: vec!["--".into()],
 ///     multis: vec![("{-".into(), "-}".into())],
