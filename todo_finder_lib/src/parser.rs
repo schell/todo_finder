@@ -113,7 +113,7 @@ pub struct FileTodoLocation {
 
 impl FileTodoLocation {
     /// ```rust
-    /// use todo_lib::parser::FileTodoLocation;
+    /// use todo_finder_lib::parser::FileTodoLocation;
     ///
     /// let loc = FileTodoLocation {
     ///     file: "/total/path/src/file.rs".into(),

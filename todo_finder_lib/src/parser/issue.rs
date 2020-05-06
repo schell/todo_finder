@@ -35,7 +35,7 @@ pub fn repo_from_github_link(i: &str) -> IResult<&str, (&str, &str)> {
 /// window of the code region.
 ///
 /// ```rust
-/// use todo_lib::parser::issue::*;
+/// use todo_finder_lib::parser::issue::*;
 ///
 /// let bytes = "#L7-L9";
 /// assert_eq!(span_from_github_link(bytes), Ok(("", (7, Some(9)))));
@@ -71,7 +71,7 @@ pub struct GitHubTodoLocation {
 /// Parses the location of a todo from a github link.
 ///
 /// ```rust
-/// use todo_lib::parser::issue::*;
+/// use todo_finder_lib::parser::issue::*;
 ///
 /// let bytes = "https://github.com/schell/repo/blob/yar/File.hs#L666 ";
 ///
@@ -114,7 +114,7 @@ pub fn todo_location_from_github_link(i: &str) -> IResult<&str, GitHubTodoLocati
 /// file provided in the issue body itself.
 ///
 /// ```rust
-/// use todo_lib::parser::issue::*;
+/// use todo_finder_lib::parser::issue::*;
 ///
 /// let bytes = "[stuff](https://github.com/schell/repo/blob/yar/File.hs#L666 \"aoeu\")\n";
 ///
@@ -168,7 +168,7 @@ impl<'a> TodoStory<'a> {
 ///
 /// ```rust
 /// use nom::multi;
-/// use todo_lib::parser::issue::*;
+/// use todo_finder_lib::parser::issue::*;
 ///
 /// let bytes = "\
 /// * Opened on master
