@@ -51,11 +51,14 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-build-target-
 
+    - name: Install OpenSSL
+      run: sudo apt-get install libssl-dev
+
     - name: test_lint
       run: .ci/test_lint.sh
 
     - name: track_todos
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       run: |
         cargo install --debug --force --path ./todo_finder --root $HOME/.cargo/
         ~/.cargo/bin/todo_finder -o github --auth ${{ github.token }} -l todo -e test_data
