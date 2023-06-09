@@ -52,7 +52,7 @@ jobs:
           ${{ runner.os }}-cargo-build-target-
 
     - name: Install OpenSSL
-      run: sudo apt-get install libssl-dev
+      run: sudo apt-get install pkg-config libssl-dev
 
     - name: test_lint
       run: .ci/test_lint.sh
