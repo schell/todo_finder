@@ -7,14 +7,12 @@ use super::{
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File, io::prelude::*, path::Path};
 
-
 pub mod issue;
 pub mod langs;
 pub mod source;
 
 use issue::GitHubTodoLocation;
 use source::ParsedTodo;
-
 
 /// Eat a whole line and optionally its ending but don't return that ending.
 pub fn take_to_eol(i: &str) -> IResult<&str, &str> {
@@ -23,12 +21,10 @@ pub fn take_to_eol(i: &str) -> IResult<&str, &str> {
     Ok((i, ln))
 }
 
-
 #[derive(Debug, Deserialize, Clone)]
 pub enum IssueProvider {
     GitHub,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum ParsingSource {
@@ -37,7 +33,6 @@ pub enum ParsingSource {
     IssueAt(IssueProvider),
 }
 
-
 #[derive(Debug, Clone)]
 pub struct IssueHead<K> {
     pub title: String,
@@ -45,13 +40,11 @@ pub struct IssueHead<K> {
     pub external_id: K,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct IssueBody<T> {
     pub descs_and_srcs: Vec<(Vec<String>, T)>,
     pub branches: Vec<String>,
 }
-
 
 impl IssueBody<FileTodoLocation> {
     pub fn to_github_string(
@@ -71,13 +64,11 @@ impl IssueBody<FileTodoLocation> {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Issue<ExternalId, TodoLocation: PartialEq + Eq> {
     pub head: IssueHead<ExternalId>,
     pub body: IssueBody<TodoLocation>,
 }
-
 
 impl<ExId, Loc: PartialEq + Eq> Issue<ExId, Loc> {
     pub fn new(id: ExId, title: String) -> Self {
@@ -95,13 +86,11 @@ impl<ExId, Loc: PartialEq + Eq> Issue<ExId, Loc> {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct IssueMap<ExternalId, TodoLocation: PartialEq + Eq> {
     pub parsed_from: ParsingSource,
     pub todos: HashMap<String, Issue<ExternalId, TodoLocation>>,
 }
-
 
 /// A todo location in the local filesystem.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -109,7 +98,6 @@ pub struct FileTodoLocation {
     pub file: String,
     pub src_span: (usize, Option<usize>),
 }
-
 
 impl FileTodoLocation {
     /// ```rust
@@ -163,7 +151,6 @@ impl FileTodoLocation {
     }
 }
 
-
 impl<K, V: Eq> IssueMap<K, V> {
     pub fn new(parsed_from: ParsingSource) -> IssueMap<K, V> {
         IssueMap {
@@ -172,7 +159,6 @@ impl<K, V: Eq> IssueMap<K, V> {
         }
     }
 }
-
 
 impl IssueMap<u64, GitHubTodoLocation> {
     pub fn new_github_todos() -> Self {
@@ -231,7 +217,6 @@ impl IssueMap<u64, GitHubTodoLocation> {
         };
     }
 }
-
 
 impl IssueMap<(), FileTodoLocation> {
     pub fn new_source_todos() -> Self {

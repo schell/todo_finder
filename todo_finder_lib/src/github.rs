@@ -11,7 +11,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Command;
 
-
 #[derive(Deserialize)]
 struct GitHubConfig {
     // Label to use for filtering TODO issues
@@ -30,14 +29,12 @@ struct GitHubConfig {
     root_project_dir: String,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubLabel {
     pub id: u64,
     pub name: String,
     pub description: Option<String>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubAssignee {
@@ -48,7 +45,6 @@ pub struct GitHubAssignee {
 pub struct GitHubUser {
     pub login: String,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubIssue {
@@ -62,18 +58,15 @@ pub struct GitHubIssue {
     pub user: GitHubUser,
 }
 
-
 pub struct GitHubPatch {
     pub create: IssueMap<(), FileTodoLocation>,
     pub edit: IssueMap<u64, FileTodoLocation>,
     pub delete: Vec<u64>,
 }
 
-
 pub fn github_issues_url(owner: &str, repo: &str) -> String {
     format!("https://api.github.com/repos/{}/{}/issues", owner, repo)
 }
-
 
 pub fn github_issues_update_url(owner: &str, repo: &str, id: u64) -> String {
     format!(
@@ -81,7 +74,6 @@ pub fn github_issues_update_url(owner: &str, repo: &str, id: u64) -> String {
         owner, repo, id
     )
 }
-
 
 /// git config --get remote.origin.url
 pub fn git_origin() -> Result<String, String> {
@@ -100,7 +92,6 @@ pub fn git_origin() -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-
 /// git rev-parse HEAD
 pub fn git_hash() -> Result<String, String> {
     let output = Command::new("git")
@@ -116,7 +107,6 @@ pub fn git_hash() -> Result<String, String> {
     let s: String = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok(s)
 }
-
 
 async fn get_github_issues(
     cfg: &GitHubConfig,
@@ -149,7 +139,6 @@ async fn get_github_issues(
     Ok(issues)
 }
 
-
 fn github_req<T: Serialize>(
     cfg: &GitHubConfig,
     method: &str,
@@ -167,7 +156,6 @@ fn github_req<T: Serialize>(
         .body(json_data.into())
         .map_err(|e| format!("error building github request: {} {}", uri, e))
 }
-
 
 async fn get_json_response<T: DeserializeOwned>(mut res: Response<Body>) -> Result<T, String> {
     //println!("Response: {}", res.status());
@@ -188,7 +176,6 @@ async fn get_json_response<T: DeserializeOwned>(mut res: Response<Body>) -> Resu
         )
     })
 }
-
 
 async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), String> {
     let https = HttpsConnector::new();
@@ -290,7 +277,6 @@ async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), Strin
 
     Ok(())
 }
-
 
 pub async fn run_ts_github(
     auth_token: String,

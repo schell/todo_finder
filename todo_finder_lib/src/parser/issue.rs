@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use super::{take_to_eol, IssueBody};
 
-
 /// Version 0 of the source location parser.
 /// Parse the file and line location from an issue decription.
 pub fn src_location0(i: &str) -> IResult<&str, (&str, usize)> {
@@ -21,7 +20,6 @@ pub fn src_location0(i: &str) -> IResult<&str, (&str, usize)> {
     Ok((i, (file, n)))
 }
 
-
 /// Parse a user's name and repo name from a github style path.
 pub fn repo_from_github_link(i: &str) -> IResult<&str, (&str, &str)> {
     let (i, user) = bytes::take_till(|c| c == '/')(i)?;
@@ -29,7 +27,6 @@ pub fn repo_from_github_link(i: &str) -> IResult<&str, (&str, &str)> {
     let (i, repo) = bytes::take_till(|c| c == '/')(i)?;
     Ok((i, (user, repo)))
 }
-
 
 /// Parse a SpanLength from a GitHub link. Pass a number of lines to widen the
 /// window of the code region.
@@ -46,7 +43,7 @@ pub fn span_from_github_link(i: &str) -> IResult<&str, (usize, Option<usize>)> {
     let start = ln_str
         .parse::<usize>()
         .expect("could not convert line number: span_from_github_link");
-    fn convert_line (ii: &str) -> IResult<&str, usize> {
+    fn convert_line(ii: &str) -> IResult<&str, usize> {
         let (ii, _) = bytes::tag("-L")(ii)?;
         let (ii, ln_str) = character::digit1(ii)?;
         let end = ln_str
@@ -58,7 +55,6 @@ pub fn span_from_github_link(i: &str) -> IResult<&str, (usize, Option<usize>)> {
     Ok((i, (start, may_end)))
 }
 
-
 /// Uniquely identifies a todo location.
 #[derive(Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct GitHubTodoLocation {
@@ -67,7 +63,6 @@ pub struct GitHubTodoLocation {
     pub file: String,
     pub src_span: (usize, Option<usize>),
 }
-
 
 /// Parses the location of a todo from a github link.
 ///
@@ -110,7 +105,6 @@ pub fn todo_location_from_github_link(i: &str) -> IResult<&str, GitHubTodoLocati
     ))
 }
 
-
 /// Parses the location of a todo from an issue's markdown link to the source
 /// file provided in the issue body itself.
 ///
@@ -148,7 +142,6 @@ pub fn todo_location_from_github_markdown_link(i: &str) -> IResult<&str, GitHubT
     }
 }
 
-
 /// Holds a branch and whether a todo exists on said branch, or if it has been
 /// removed from said branch.
 #[derive(Clone, Debug, PartialEq)]
@@ -157,13 +150,11 @@ pub struct TodoStory<'a> {
     pub is_closed: bool,
 }
 
-
 impl<'a> TodoStory<'a> {
     pub fn is_open(&self) -> bool {
         !self.is_closed
     }
 }
-
 
 /// Parse a todo story from an issue comment.
 ///
@@ -226,7 +217,6 @@ pub fn todo_story(i: &str) -> IResult<&str, TodoStory> {
     Ok((i, TodoStory { branch, is_closed }))
 }
 
-
 /// Collapse and filter the input stories into a vector of branches that the todo
 /// still exists on.
 pub fn branches_todo_is_found_on(stories: Vec<TodoStory>) -> Vec<&str> {
@@ -251,19 +241,16 @@ pub fn branches_todo_is_found_on(stories: Vec<TodoStory>) -> Vec<&str> {
     branches
 }
 
-
 /// Parse a vector of TodoStory.
 pub fn todo_stories(i: &str) -> IResult<&str, Vec<TodoStory>> {
     multi::many1(todo_story)(i)
 }
-
 
 /// Parse a todo from an issue.
 /// Returns the location of the todo and the lines of the todo's description.
 pub fn issue_todo(i: &str) -> IResult<&str, (Vec<&str>, GitHubTodoLocation)> {
     multi::many_till(take_to_eol, todo_location_from_github_markdown_link)(i)
 }
-
 
 /// Parse the entire body of an issue.
 /// TODO: Remove stories entirely.
@@ -317,16 +304,13 @@ pub fn issue_body(i: &str) -> IResult<&str, IssueBody<GitHubTodoLocation>> {
     ))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-
     #[test]
     fn can_parse_todo_location_from_github_link() {
-        let bytes: &str =
-      "\
+        let bytes: &str = "\
 https://github.com/schell/src-of-truth/blob/\
 b18659e607c3673b883b4caa07a1e850e0a6121c/src/SrcOfTruth.hs#L258";
         assert_eq!(
@@ -342,8 +326,7 @@ b18659e607c3673b883b4caa07a1e850e0a6121c/src/SrcOfTruth.hs#L258";
             ))
         );
 
-        let bytes =
-      "\
+        let bytes = "\
 https://github.com/schell/src-of-truth/blob/\
 a1eb484c90f9e0b85ab5066b8950750a5bd4ab95/app/Main.hs#L3-L7";
 
@@ -363,8 +346,7 @@ a1eb484c90f9e0b85ab5066b8950750a5bd4ab95/app/Main.hs#L3-L7";
 
     #[test]
     fn can_parse_todo_location_with_range_from_github_link() {
-        let bytes =
-      "\
+        let bytes = "\
 https://github.com/schell/src-of-truth/blob/\
 6e2f663102a282027f1fb0cdf0f0c4e203a118f1/src/SrcOfTruth/Issues.hs#L254-L256\n\n";
         assert_eq!(
@@ -380,7 +362,6 @@ https://github.com/schell/src-of-truth/blob/\
             ))
         );
     }
-
 
     #[test]
     fn can_parse_todo_stories() {

@@ -1,16 +1,13 @@
 //! Running ripgrep to find TODOs.
-//!
 use std::process::Command;
 
 use super::parse;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PossibleTodosInFile {
     pub file: String,
     pub lines_to_search: Vec<usize>,
 }
-
 
 impl PossibleTodosInFile {
     pub fn new(file: &str, lines_to_search: Vec<usize>) -> Self {
@@ -20,7 +17,6 @@ impl PossibleTodosInFile {
         }
     }
 }
-
 
 /// Run `rg` with the path and pattern given, returning the result bytes if
 /// successful.
@@ -51,7 +47,6 @@ pub(crate) fn get_rg_output(
     }
 }
 
-
 /// Parse the output of `rg` into a map of file to possible todo locations.
 pub(crate) fn parse_rg_output(output: &Vec<u8>) -> Result<Vec<PossibleTodosInFile>, String> {
     let rg_output = std::str::from_utf8(output)
@@ -69,7 +64,6 @@ pub(crate) fn parse_rg_output(output: &Vec<u8>) -> Result<Vec<PossibleTodosInFil
     Ok(todos)
 }
 
-
 /// Run `rg` with the path and some commonly used TODO patterns, returning the
 /// result bytes if successful.
 pub(crate) fn get_rg_output_with_common_patterns(
@@ -85,7 +79,6 @@ pub(crate) fn get_rg_output_with_common_patterns(
 
     Ok(todos)
 }
-
 
 #[cfg(test)]
 mod tests {

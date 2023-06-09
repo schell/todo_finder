@@ -2,14 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use super::source::TodoParserConfig;
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CommentStyle {
     Single(String),
     Multi(String, String),
     Border(String),
 }
-
 
 fn from_single(s: &str) -> CommentStyle {
     CommentStyle::Single(s.into())
@@ -23,7 +21,6 @@ fn from_border(border: &str) -> CommentStyle {
     CommentStyle::Border(border.into())
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SupportedLanguage {
     pub name: String,
@@ -31,13 +28,11 @@ pub struct SupportedLanguage {
     pub file_extensions: Vec<String>,
 }
 
-
 impl SupportedLanguage {
     pub fn as_todo_parser_config(&self) -> TodoParserConfig {
         TodoParserConfig::from_comment_styles(self.comment_styles.clone())
     }
 }
-
 
 pub fn lang(name: &str, comment_styles: Vec<CommentStyle>, exts: Vec<&str>) -> SupportedLanguage {
     SupportedLanguage {
@@ -47,21 +42,17 @@ pub fn lang(name: &str, comment_styles: Vec<CommentStyle>, exts: Vec<&str>) -> S
     }
 }
 
-
 pub fn haskell_style() -> Vec<CommentStyle> {
     vec![from_single("--"), from_multi("{-", "-}"), from_border("|")]
 }
-
 
 pub fn nix_style() -> Vec<CommentStyle> {
     vec![from_single("#")]
 }
 
-
 pub fn yml_style() -> Vec<CommentStyle> {
     vec![from_single("#")]
 }
-
 
 pub fn c_style() -> Vec<CommentStyle> {
     vec![
@@ -72,11 +63,9 @@ pub fn c_style() -> Vec<CommentStyle> {
     ]
 }
 
-
 pub fn rust_style() -> Vec<CommentStyle> {
     c_style()
 }
-
 
 pub fn objc_style() -> Vec<CommentStyle> {
     let mut c = c_style();
@@ -84,23 +73,19 @@ pub fn objc_style() -> Vec<CommentStyle> {
     c
 }
 
-
 pub fn swift_style() -> Vec<CommentStyle> {
     let mut objc = objc_style();
     objc.extend(vec![from_border(":")]);
     objc
 }
 
-
 pub fn lisp_style() -> Vec<CommentStyle> {
     vec![from_single(";"), from_border(";")]
 }
 
-
 pub fn coffee_style() -> Vec<CommentStyle> {
     vec![from_single("#"), from_multi("###", "###")]
 }
-
 
 pub fn delphi_style() -> Vec<CommentStyle> {
     vec![
@@ -110,16 +95,13 @@ pub fn delphi_style() -> Vec<CommentStyle> {
     ]
 }
 
-
 pub fn php_style() -> Vec<CommentStyle> {
     vec![from_single("//"), from_single("#"), from_multi("/*", "*/")]
 }
 
-
 pub fn python_style() -> Vec<CommentStyle> {
     vec![from_single("#"), from_multi("\"\"\"", "\"\"\"")]
 }
-
 
 pub fn all_supported_langs() -> HashSet<SupportedLanguage> {
     vec![
@@ -271,7 +253,6 @@ pub fn all_supported_langs() -> HashSet<SupportedLanguage> {
     .into_iter()
     .collect()
 }
-
 
 pub fn language_map() -> HashMap<String, Vec<SupportedLanguage>> {
     let mut lang_map = HashMap::new();

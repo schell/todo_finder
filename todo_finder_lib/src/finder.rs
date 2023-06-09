@@ -3,9 +3,7 @@ pub mod parse;
 mod rg;
 pub use rg::PossibleTodosInFile;
 
-
 pub struct FileSearcher;
-
 
 impl FileSearcher {
     /// Find the locations of possible TODOs at the given path.

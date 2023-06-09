@@ -225,7 +225,7 @@ mod test_my_assumptions {
 /// Eat a single or multi line comment start.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// let (borders, single) = (vec!["|".to_string()], "--".to_string());
 ///
@@ -268,7 +268,7 @@ pub fn comment_start(
 /// Eat an assigned name.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// assert_eq!(assignee("(mitchellwrosen)"), Ok(("", "mitchellwrosen")))
 /// ```
@@ -322,7 +322,7 @@ pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
 /// slices.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// let bytes = "Sandy doesn't like fmap.fmap for some reason. Other sentence.\n";
 /// assert_eq!(
@@ -369,7 +369,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
 /// this function *will remove trailing whitespace, including line breaks*.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// assert_eq!(
 ///     trim_borders(&vec!["*".into()], " * I like veggies *\n"),
@@ -390,7 +390,7 @@ pub fn trim_borders<'a>(borders: &Vec<String>, i: &'a str) -> &'a str {
 /// of a todo, is a portion of the description.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// let bytes = "sleep for variable time depending on exact error? Ionno know.\n\n";
 /// assert_eq!(
@@ -487,7 +487,7 @@ pub fn single_line_todo(
 /// Eat a todo that lives in a multi-line comment block.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// let haskell_parser = multi_line_todo(vec!["|".into()], "{-".into(), "-}".into());
 ///
@@ -622,7 +622,7 @@ pub struct ParsedTodo<'a> {
 /// Configures a parser to eat a todo from the input.
 ///
 /// ```rust
-/// use todo_finder_lib::parser::source::*;;
+/// use todo_finder_lib::parser::source::*;
 ///
 /// let haskell_parser = parse_todo(TodoParserConfig {
 ///     singles: vec!["--".into()],

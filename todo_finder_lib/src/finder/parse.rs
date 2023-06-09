@@ -2,7 +2,6 @@ use nom::{
     branch, bytes::complete as bytes, character::complete as character, combinator, multi, IResult,
 };
 
-
 pub fn parse_owner_and_repo_from_config(i: &str) -> IResult<&str, (&str, &str)> {
     let (i, (owner, repo)) = branch::alt((
         parse_owner_and_repo_from_config_git,
@@ -40,7 +39,6 @@ pub fn take_to_eol(i: &str) -> IResult<&str, &str> {
     Ok((i, ln))
 }
 
-
 pub fn parse_rg_line(i: &str) -> IResult<&str, usize> {
     let (i, lnum) = character::digit1(i)?;
     let (i, _) = character::char(':')(i)?;
@@ -49,7 +47,6 @@ pub fn parse_rg_line(i: &str) -> IResult<&str, usize> {
     Ok((i, lnum))
 }
 
-
 pub fn parse_rg_file(i: &str) -> IResult<&str, (&str, Vec<usize>)> {
     let (i, file) = take_to_eol(i)?;
     let (i, line_nums) = multi::many1(parse_rg_line)(i)?;
@@ -57,11 +54,9 @@ pub fn parse_rg_file(i: &str) -> IResult<&str, (&str, Vec<usize>)> {
     Ok((i, (file, line_nums)))
 }
 
-
 pub fn parse_rg(i: &str) -> IResult<&str, Vec<(&str, Vec<usize>)>> {
     multi::many1(parse_rg_file)(i)
 }
-
 
 #[cfg(test)]
 mod tests {

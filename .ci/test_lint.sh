@@ -10,6 +10,6 @@ section "Test"
 rustup run stable cargo test --release --verbose
 
 section "Lint"
-rustup run nightly cargo fmt -- --check
+rustup run stable cargo fmt -- --check
 
 section "done :tada:"
