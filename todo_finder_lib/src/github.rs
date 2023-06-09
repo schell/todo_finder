@@ -33,7 +33,7 @@ struct GitHubConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubLabel {
-    pub id: u32,
+    pub id: u64,
     pub name: String,
     pub description: Option<String>,
 }
@@ -52,8 +52,8 @@ pub struct GitHubUser {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitHubIssue {
-    pub id: u32,
-    pub number: u32,
+    pub id: u64,
+    pub number: u64,
     pub title: String,
     pub body: String,
     pub state: String,
@@ -65,8 +65,8 @@ pub struct GitHubIssue {
 
 pub struct GitHubPatch {
     pub create: IssueMap<(), FileTodoLocation>,
-    pub edit: IssueMap<u32, FileTodoLocation>,
-    pub delete: Vec<u32>,
+    pub edit: IssueMap<u64, FileTodoLocation>,
+    pub delete: Vec<u64>,
 }
 
 
@@ -75,7 +75,7 @@ pub fn github_issues_url(owner: &str, repo: &str) -> String {
 }
 
 
-pub fn github_issues_update_url(owner: &str, repo: &str, id: u32) -> String {
+pub fn github_issues_update_url(owner: &str, repo: &str, id: u64) -> String {
     format!(
         "https://api.github.com/repos/{}/{}/issues/{}",
         owner, repo, id
@@ -120,7 +120,7 @@ pub fn git_hash() -> Result<String, String> {
 
 async fn get_github_issues(
     cfg: &GitHubConfig,
-) -> Result<IssueMap<u32, GitHubTodoLocation>, String> {
+) -> Result<IssueMap<u64, GitHubTodoLocation>, String> {
     let url = github_issues_url(&cfg.owner, &cfg.repo);
     println!("  {}", url);
     let req = github_req(
@@ -341,4 +341,87 @@ pub async fn run_ts_github(
     apply_patch(&cfg, patch).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod regression {
+    use super::*;
+
+    const GITHUB_ISSUE_TEXT: &str = r#"[
+  {
+    "url": "https://api.github.com/repos/schell/renderling/issues/10",
+    "repository_url": "https://api.github.com/repos/schell/renderling",
+    "labels_url": "https://api.github.com/repos/schell/renderling/issues/10/labels{/name}",
+    "comments_url": "https://api.github.com/repos/schell/renderling/issues/10/comments",
+    "events_url": "https://api.github.com/repos/schell/renderling/issues/10/events",
+    "html_url": "https://github.com/schell/renderling/issues/10",
+    "id": 1700888990,
+    "node_id": "I_kwDOG2DFqM5lYYGe",
+    "number": 10,
+    "title": "remove this as the `atlas` field is public now",
+    "user": {
+      "login": "schell",
+      "id": 24942,
+      "node_id": "MDQ6VXNlcjI0OTQy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/24942?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/schell",
+      "html_url": "https://github.com/schell",
+      "followers_url": "https://api.github.com/users/schell/followers",
+      "following_url": "https://api.github.com/users/schell/following{/other_user}",
+      "gists_url": "https://api.github.com/users/schell/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/schell/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/schell/subscriptions",
+      "organizations_url": "https://api.github.com/users/schell/orgs",
+      "repos_url": "https://api.github.com/users/schell/repos",
+      "events_url": "https://api.github.com/users/schell/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/schell/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 5480519678,
+        "node_id": "LA_kwDOG2DFqM8AAAABRqoX_g",
+        "url": "https://api.github.com/repos/schell/renderling/labels/todo",
+        "name": "todo",
+        "color": "f9d0c4",
+        "default": false,
+        "description": "TODO: ..."
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2023-05-08T20:28:26Z",
+    "updated_at": "2023-05-08T20:28:27Z",
+    "closed_at": null,
+    "author_association": "OWNER",
+    "active_lock_reason": null,
+    "body": "\\nhttps://github.com/schell/renderling/blob/9e5451d6fa5ce074af4df752063d8b6b1a9c938b/crates/renderling/src/scene.rs#L482",
+    "reactions": {
+      "url": "https://api.github.com/repos/schell/renderling/issues/10/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "timeline_url": "https://api.github.com/repos/schell/renderling/issues/10/timeline",
+    "performed_via_github_app": null,
+    "state_reason": null
+  }
+]"#;
+
+    #[test]
+    fn can_deserialize_github_issues() {
+        serde_json::from_str::<Vec<GitHubIssue>>(GITHUB_ISSUE_TEXT).unwrap();
+    }
 }

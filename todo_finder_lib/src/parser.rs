@@ -174,7 +174,7 @@ impl<K, V: Eq> IssueMap<K, V> {
 }
 
 
-impl IssueMap<u32, GitHubTodoLocation> {
+impl IssueMap<u64, GitHubTodoLocation> {
     pub fn new_github_todos() -> Self {
         IssueMap {
             parsed_from: ParsingSource::IssueAt(IssueProvider::GitHub),
@@ -192,7 +192,7 @@ impl IssueMap<u32, GitHubTodoLocation> {
 
     pub fn prepare_patch(&self, local: IssueMap<(), FileTodoLocation>) -> GitHubPatch {
         let mut create = IssueMap::new_source_todos();
-        let mut edit: IssueMap<u32, FileTodoLocation> = IssueMap::new(ParsingSource::SourceCode);
+        let mut edit: IssueMap<u64, FileTodoLocation> = IssueMap::new(ParsingSource::SourceCode);
         let mut dont_delete = vec![];
 
         for (title, local_issue) in local.todos.into_iter() {

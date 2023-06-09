@@ -5,3 +5,4 @@ todo_sync_config.yaml
 .terraform
 bootstrap
 *.zip
+.DS_Store

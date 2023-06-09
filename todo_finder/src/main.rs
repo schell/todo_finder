@@ -2,9 +2,6 @@ use clap::{App, Arg};
 use std::{fs::File, io::prelude::*, path::Path};
 use todo_finder_lib::{github, parser::IssueMap};
 
-#[cfg(test)]
-mod cli_tests {}
-
 #[tokio::main]
 async fn main() {
     let cwd = std::env::current_dir().expect("could not get current dir");
@@ -75,16 +72,14 @@ async fn main() {
             let issue_label = matches
                 .value_of("label")
                 .expect("github requires an issue label");
-            if let Err(msg) = github::run_ts_github(
+            github::run_ts_github(
                 auth_token.into(),
                 issue_label.into(),
                 cwd_str.into(),
                 &exclusions,
             )
             .await
-            {
-                panic!(msg);
-            }
+            .unwrap();
         }
 
         _ => panic!("invalid value for 'output'"),

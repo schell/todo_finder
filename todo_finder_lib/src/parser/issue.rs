@@ -46,14 +46,15 @@ pub fn span_from_github_link(i: &str) -> IResult<&str, (usize, Option<usize>)> {
     let start = ln_str
         .parse::<usize>()
         .expect("could not convert line number: span_from_github_link");
-    let (i, may_end) = combinator::opt(|ii: &str| {
+    fn convert_line (ii: &str) -> IResult<&str, usize> {
         let (ii, _) = bytes::tag("-L")(ii)?;
         let (ii, ln_str) = character::digit1(ii)?;
         let end = ln_str
             .parse::<usize>()
             .expect("could not convert line number: span_from_github_link::fn");
         Ok((ii, end))
-    })(i)?;
+    }
+    let (i, may_end) = combinator::opt(convert_line)(i)?;
     Ok((i, (start, may_end)))
 }
 

@@ -10,7 +10,6 @@ use nom::{
 };
 use std::collections::HashMap;
 
-
 #[cfg(test)]
 mod test_my_assumptions {
     use super::*;
@@ -57,7 +56,6 @@ mod test_my_assumptions {
             title_and_rest_till_eol(vec![])(bytes),
             Ok(("-- blah blah\n", ("uuid onSend/onReceive", "")))
         );
-
 
         let bytes = "This is the title! The description is less angry.\n";
         assert_eq!(
@@ -224,12 +222,11 @@ mod test_my_assumptions {
     }
 }
 
-
 /// Eat a single or multi line comment start.
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let (borders, single) = (vec!["|".to_string()], "--".to_string());
 ///
 /// assert_eq!(
@@ -268,12 +265,11 @@ pub fn comment_start(
     }
 }
 
-
 /// Eat an assigned name.
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// assert_eq!(assignee("(mitchellwrosen)"), Ok(("", "mitchellwrosen")))
 /// ```
 pub fn assignee(i: &str) -> IResult<&str, &str> {
@@ -284,7 +280,6 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
     let (i, _) = character::char(')')(i)?;
     Ok((i, name))
 }
-
 
 /// Eat a todo tag. Currently supports `TODO`, `FIXME` and `@todo`.
 /// It will also eat any assigned name following the todo tag and return it.
@@ -320,7 +315,6 @@ pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
     Ok((i, may_name))
 }
 
-
 /// Eat a sentence and its terminator and a space.
 /// Terminators must have an empty space after them to be considered valid,
 /// otherwise they could be a programming operator.
@@ -329,7 +323,7 @@ pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let bytes = "Sandy doesn't like fmap.fmap for some reason. Other sentence.\n";
 /// assert_eq!(
 ///     sentence_and_terminator(bytes),
@@ -376,7 +370,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// assert_eq!(
 ///     trim_borders(&vec!["*".into()], " * I like veggies *\n"),
 ///     "I like veggies"
@@ -392,13 +386,12 @@ pub fn trim_borders<'a>(borders: &Vec<String>, i: &'a str) -> &'a str {
         .fold(i, |i, border| i.trim_end_matches(border).trim())
 }
 
-
 /// Eat a sentence and the rest of the line, if possible. The rest, in the case
 /// of a todo, is a portion of the description.
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let bytes = "sleep for variable time depending on exact error? Ionno know.\n\n";
 /// assert_eq!(
 ///     title_and_rest_till_eol(vec![])(bytes),
@@ -422,7 +415,6 @@ pub fn title_and_rest_till_eol(
         Ok((i, (title, trim_borders(&borders, desc))))
     }
 }
-
 
 /// Eat a single line comment. Fails if it hits a possible todo and stops when it
 /// eats the end of a line.
@@ -455,7 +447,6 @@ pub fn single_line_comment(
         take_to_eol(i)
     }
 }
-
 
 /// Eat a todo comprised of single line comments.
 /// Returns an assignee if possible, the todo's title and a vector of description
@@ -493,12 +484,11 @@ pub fn single_line_todo(
     }
 }
 
-
 /// Eat a todo that lives in a multi-line comment block.
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let haskell_parser = multi_line_todo(vec!["|".into()], "{-".into(), "-}".into());
 ///
 /// let bytes = "{- | TODO: My todo title.
@@ -550,7 +540,6 @@ pub fn multi_line_todo(
     }
 }
 
-
 /// A todo parser configuration.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TodoParserConfig {
@@ -564,7 +553,6 @@ pub struct TodoParserConfig {
     /// Eg. `vec!["|".into()]` for Haskell
     pub borders: Vec<String>,
 }
-
 
 impl TodoParserConfig {
     pub fn new() -> Self {
@@ -602,9 +590,7 @@ impl TodoParserConfig {
     }
 }
 
-
 pub struct ParserConfigLookup(pub HashMap<String, TodoParserConfig>);
-
 
 impl ParserConfigLookup {
     pub fn new() -> Self {
@@ -625,7 +611,6 @@ impl ParserConfigLookup {
     }
 }
 
-
 /// A structure to conveniently hold a fully parsed todo.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParsedTodo<'a> {
@@ -634,12 +619,11 @@ pub struct ParsedTodo<'a> {
     pub desc_lines: Vec<&'a str>,
 }
 
-
 /// Configures a parser to eat a todo from the input.
 ///
 /// ```rust
 /// use todo_finder_lib::parser::source::*;;
-///     
+///
 /// let haskell_parser = parse_todo(TodoParserConfig {
 ///     singles: vec!["--".into()],
 ///     multis: vec![("{-".into(), "-}".into())],
@@ -688,15 +672,17 @@ pub fn parse_todo<'a>(
             }
         }
 
-        Err(Err::Error((i, ErrorKind::Tag)))
+        Err(Err::Error(nom::error::Error {
+            input: i,
+            code: ErrorKind::Tag,
+        }))
     }
 }
 
-
 /// Using the given config, return a parser that will parse any and all todos
 /// from the string.
-pub fn parse_todos<'a>(cfg: TodoParserConfig) -> impl Fn(&'a str) -> Vec<ParsedTodo<'a>> {
-    let parser = multi::many_till(take_to_eol, parse_todo(cfg));
+pub fn parse_todos<'a>(cfg: TodoParserConfig) -> impl FnMut(&'a str) -> Vec<ParsedTodo<'a>> {
+    let mut parser = multi::many_till(take_to_eol, parse_todo(cfg));
     move |i: &str| {
         let mut todos = vec![];
         let mut ii = i;
