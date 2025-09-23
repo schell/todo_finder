@@ -58,7 +58,7 @@ impl IssueBody<FileTodoLocation> {
         for (desc_lines, loc) in self.descs_and_srcs.iter() {
             let desc = desc_lines.clone().join("\n");
             let link = loc.to_github_link(cwd, owner, repo, checkout)?;
-            lines.push(vec![desc, link].join("\n"));
+            lines.push([desc, link].join("\n"));
         }
         Ok(lines.join("\n"))
     }
@@ -128,7 +128,7 @@ impl FileTodoLocation {
         let relative: &Path = path
             .strip_prefix(cwd)
             .map_err(|e| format!("could not relativize path {:#?}: {}", path, e))?;
-        let file_and_range = vec![
+        let file_and_range = [
             format!("{}", relative.display()),
             format!("#L{}", self.src_span.0),
             if let Some(end) = self.src_span.1 {
@@ -139,7 +139,7 @@ impl FileTodoLocation {
         ]
         .concat();
 
-        let parts = vec![
+        let parts = [
             "https://github.com",
             owner,
             repo,
@@ -184,7 +184,7 @@ impl IssueMap<u64, GitHubTodoLocation> {
         for (title, local_issue) in local.todos.into_iter() {
             if let Some(remote_issue) = self.todos.get(&title) {
                 // They both have it
-                let id = remote_issue.head.external_id.clone();
+                let id = remote_issue.head.external_id;
                 dont_delete.push(id);
                 let issue = Issue {
                     head: remote_issue.head.clone(),
@@ -210,11 +210,11 @@ impl IssueMap<u64, GitHubTodoLocation> {
             })
             .collect::<Vec<_>>();
 
-        return GitHubPatch {
+        GitHubPatch {
             create,
             edit,
             delete,
-        };
+        }
     }
 }
 
@@ -253,7 +253,7 @@ impl IssueMap<(), FileTodoLocation> {
 
     pub fn from_files_in_directory(
         dir: &str,
-        excludes: &Vec<String>,
+        excludes: &[String],
     ) -> Result<IssueMap<(), FileTodoLocation>, String> {
         let possible_todos = FileSearcher::find(dir, excludes)?;
         let mut todos = IssueMap::new_source_todos();
@@ -358,7 +358,7 @@ impl IssueMap<(), FileTodoLocation> {
                 ));
                 lines.push("".into());
             }
-            if issue.head.assignees.len() > 0 {
+            if !issue.head.assignees.is_empty() {
                 lines.push(format!(
                     "  assignees: {}\n",
                     issue.head.assignees.join(", ")

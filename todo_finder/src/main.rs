@@ -51,7 +51,7 @@ async fn main() {
     let exclusions: Vec<String> = matches
         .value_of("exclude")
         .map(|s| s.split(" ").map(|s| s.to_string()).collect::<Vec<_>>())
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
 
     match matches.value_of("output").expect("--output required") {
         "markdown" => {
@@ -59,11 +59,11 @@ async fn main() {
             let issues = IssueMap::from_files_in_directory(cwd_str, &exclusions).unwrap();
             let markdown = issues.as_markdown();
             let path = Path::new(file_name);
-            let mut file =
-                File::create(path).expect(&format!("could not create file {}", file_name));
+            let mut file = File::create(path)
+                .unwrap_or_else(|_| panic!("could not create file {}", file_name));
             let bytes = markdown.as_bytes();
             file.write_all(bytes)
-                .expect(&format!("could not write to file {}", file_name));
+                .unwrap_or_else(|_| panic!("could not write to file {}", file_name));
             println!("TODOs written to {:#?}", path);
         }
 

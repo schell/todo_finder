@@ -128,7 +128,9 @@ pub fn todo_location_from_github_link(i: &str) -> IResult<&str, GitHubTodoLocati
 /// ```
 pub fn todo_location_from_github_markdown_link(i: &str) -> IResult<&str, GitHubTodoLocation> {
     let (i, may_tloc) = combinator::opt(todo_location_from_github_link)(i)?;
-    if may_tloc.is_none() {
+    if let Some(tloc) = may_tloc {
+        Ok((i, tloc))
+    } else {
         let (i, _) = character::char('[')(i)?;
         let (i, _) = bytes::take_till(|c| c == ']')(i)?;
         let (i, _) = character::char(']')(i)?;
@@ -137,8 +139,6 @@ pub fn todo_location_from_github_markdown_link(i: &str) -> IResult<&str, GitHubT
         let (i, _) = bytes::take_till(|c| c == ')')(i)?;
         let (i, _) = character::char(')')(i)?;
         Ok((i, tloc))
-    } else {
-        Ok((i, may_tloc.unwrap()))
     }
 }
 
@@ -194,7 +194,7 @@ impl<'a> TodoStory<'a> {
 ///     ))
 /// );
 /// ```
-pub fn todo_story(i: &str) -> IResult<&str, TodoStory> {
+pub fn todo_story(i: &'_ str) -> IResult<&'_ str, TodoStory<'_>> {
     let (i, _) = character::char('*')(i)?;
     let alts = [
         (" Opened on ", false),
@@ -219,7 +219,7 @@ pub fn todo_story(i: &str) -> IResult<&str, TodoStory> {
 
 /// Collapse and filter the input stories into a vector of branches that the todo
 /// still exists on.
-pub fn branches_todo_is_found_on(stories: Vec<TodoStory>) -> Vec<&str> {
+pub fn branches_todo_is_found_on(stories: Vec<TodoStory<'_>>) -> Vec<&str> {
     let mut map: HashMap<&str, bool> = HashMap::new();
     for story in stories.into_iter() {
         map.insert(story.branch, story.is_closed);
@@ -242,7 +242,7 @@ pub fn branches_todo_is_found_on(stories: Vec<TodoStory>) -> Vec<&str> {
 }
 
 /// Parse a vector of TodoStory.
-pub fn todo_stories(i: &str) -> IResult<&str, Vec<TodoStory>> {
+pub fn todo_stories(i: &'_ str) -> IResult<&'_ str, Vec<TodoStory<'_>>> {
     multi::many1(todo_story)(i)
 }
 
@@ -282,7 +282,7 @@ pub fn issue_body(i: &str) -> IResult<&str, IssueBody<GitHubTodoLocation>> {
             )
         })
         .collect::<Vec<_>>();
-    descs_todos.sort_by(|(_, a_loc), (_, b_loc)| a_loc.cmp(&b_loc));
+    descs_todos.sort_by(|(_, a_loc), (_, b_loc)| a_loc.cmp(b_loc));
 
     let branches = if let Some(stories) = may_stories {
         let mut branches: Vec<String> = branches_todo_is_found_on(stories)

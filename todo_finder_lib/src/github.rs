@@ -186,7 +186,7 @@ async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), Strin
     println!("creating {} issues", patch.create.todos.len());
     for (_, issue) in patch.create.todos.iter() {
         let req = github_req(
-            &cfg,
+            cfg,
             "POST",
             &url,
             json!({
@@ -227,20 +227,19 @@ async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), Strin
             .map_err(|e| format!("could not convert issue body to description: {}", e))?;
         let print_body = body
             .lines()
-            .map(|s| vec!["  ".into(), s].concat())
+            .map(|s| ["  ", s].concat())
             .collect::<Vec<_>>()
             .join("\n");
         println!("{}", print_body);
 
         let req = github_req(
-            &cfg,
+            cfg,
             "PATCH",
             &github_issues_update_url(&cfg.owner, &cfg.repo, id),
             json!({
               "title": issue.head.title,
               "body": body,
               "assignees": issue.head.assignees,
-              "labels": vec![&cfg.issue_label]
             }),
         )?;
         let res: Response<Body> = client
@@ -255,7 +254,7 @@ async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), Strin
     println!("deleting {} issues", patch.delete.len());
     for id in patch.delete.iter() {
         let req = github_req(
-            &cfg,
+            cfg,
             "PATCH",
             &github_issues_update_url(&cfg.owner, &cfg.repo, *id),
             json!({"state":"closed"}),
@@ -268,8 +267,7 @@ async fn apply_patch(cfg: &GitHubConfig, patch: GitHubPatch) -> Result<(), Strin
         let json: Value = get_json_response(res).await?;
         let title = json
             .as_object()
-            .map(|obj| obj.get("title").map(|s| s.as_str()).flatten())
-            .flatten();
+            .and_then(|obj| obj.get("title").and_then(|s| s.as_str()));
         if let Some(title) = title {
             println!("closed '{}'", title);
         }
@@ -282,7 +280,7 @@ pub async fn run_ts_github(
     auth_token: String,
     issue_label: String,
     cwd: String,
-    excludes: &Vec<String>,
+    excludes: &[String],
 ) -> Result<(), String> {
     //let path = Path::new(config_path_str);
     //let mut file: File = File::open(path).expect("could not open config file");

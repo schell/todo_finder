@@ -23,12 +23,10 @@ impl PossibleTodosInFile {
 pub(crate) fn get_rg_output(
     path: &str,
     pattern: &str,
-    excludes: &Vec<String>,
+    excludes: &[String],
 ) -> Result<Vec<u8>, String> {
-    let mut cmd = Command::new("rg".to_string());
-    let _ = cmd
-        .arg("--heading".to_string())
-        .arg("--line-number".to_string());
+    let mut cmd = Command::new("rg");
+    let _ = cmd.arg("--heading").arg("--line-number");
     for exclude in excludes.iter() {
         cmd.arg("-g").arg(format!("!{}", exclude));
     }
@@ -48,7 +46,7 @@ pub(crate) fn get_rg_output(
 }
 
 /// Parse the output of `rg` into a map of file to possible todo locations.
-pub(crate) fn parse_rg_output(output: &Vec<u8>) -> Result<Vec<PossibleTodosInFile>, String> {
+pub(crate) fn parse_rg_output(output: &[u8]) -> Result<Vec<PossibleTodosInFile>, String> {
     let rg_output = std::str::from_utf8(output)
         .map_err(|e| format!("could not convert rg output to utf8: {:#?}", e))?;
 
@@ -68,7 +66,7 @@ pub(crate) fn parse_rg_output(output: &Vec<u8>) -> Result<Vec<PossibleTodosInFil
 /// result bytes if successful.
 pub(crate) fn get_rg_output_with_common_patterns(
     path: &str,
-    excludes: &Vec<String>,
+    excludes: &[String],
 ) -> Result<Vec<u8>, String> {
     let patterns = ["TODO", "@todo", "FIXME"];
 

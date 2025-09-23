@@ -40,12 +40,12 @@ mod test_my_assumptions {
         if let Ok((i, ())) = combinator::not(todo_tag)(i) {
             assert_eq!(i, "blah1 blah2");
         } else {
-            assert!(false, "Failed");
+            panic!("Failed");
         }
 
         let i = "TODO: blah1 blah2";
         if let Ok((_, ())) = combinator::not(todo_tag)(i) {
-            assert!(false, "Failed");
+            panic!("Failed");
         }
     }
 
@@ -100,7 +100,7 @@ mod test_my_assumptions {
             Ok((
                 "    \n",
                 vec![
-                    (None, "Let's have a byte to eat.", vec!["Ok.".into()]),
+                    (None, "Let's have a byte to eat.", vec!["Ok."]),
                     (Some(""), "Nah, let's just have a nibble.", vec![])
                 ]
             ))
@@ -251,11 +251,8 @@ pub fn comment_start(
             'eat_borders: for border in borders.iter() {
                 let (input, ate) = combinator::opt(bytes::tag(border.as_str()))(input_left)?;
                 input_left = input;
-                match ate {
-                    Some(_) => {
-                        break 'eat_borders;
-                    }
-                    None => {}
+                if ate.is_some() {
+                    break 'eat_borders;
                 }
             }
             input_left
@@ -353,7 +350,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
         ii = j;
         n += sentence.len();
         n += terminators.len();
-        if space.is_some() || j == "" {
+        if space.is_some() || j.is_empty() {
             // Unless we get a space or are at the end, keep eating more
             break 'eating_sentences;
         }
@@ -376,7 +373,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
 ///     "I like veggies"
 /// );
 /// ```
-pub fn trim_borders<'a>(borders: &Vec<String>, i: &'a str) -> &'a str {
+pub fn trim_borders<'a>(borders: &[String], i: &'a str) -> &'a str {
     let i = i.trim();
     let i = borders
         .iter()
@@ -462,6 +459,7 @@ pub fn single_line_comment(
 ///     Ok(("", (None, "Hey there.", vec!["Description.".into()])))
 /// );
 /// ```
+#[allow(clippy::type_complexity)]
 pub fn single_line_todo(
     // An ignorable border for comments that like to have outlines.
     // Eg. "*" for C-like langs or "!" for Objective-C.
@@ -507,6 +505,7 @@ pub fn single_line_todo(
 ///     ))
 /// );
 /// ```
+#[allow(clippy::type_complexity)]
 pub fn multi_line_todo(
     // An ignorable border for comments that like to have outlines.
     // Eg. "*" for C-like langs or "!" for Objective-C.
@@ -524,7 +523,7 @@ pub fn multi_line_todo(
         let (i, _) = combinator::opt(comment_start(borders.clone(), prefix.clone()))(i)?;
         let (i, may_name) = todo_tag(i)?;
         let (i, (title, desc0)) = parse_title_desc(i)?;
-        if desc0 == &suffix {
+        if desc0 == suffix {
             Ok((i, (may_name, title, vec![])))
         } else {
             let (i, comment) = bytes::take_until(suffix.as_str())(i)?;
@@ -541,7 +540,7 @@ pub fn multi_line_todo(
 }
 
 /// A todo parser configuration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TodoParserConfig {
     /// A list of single comment openers.
     /// Eg. `vec!["--".into()]` for Haskell
@@ -555,14 +554,6 @@ pub struct TodoParserConfig {
 }
 
 impl TodoParserConfig {
-    pub fn new() -> Self {
-        TodoParserConfig {
-            singles: vec![],
-            multis: vec![],
-            borders: vec![],
-        }
-    }
-
     pub fn add_comment_style(&mut self, cs: CommentStyle) {
         match cs {
             CommentStyle::Single(s) => {
@@ -576,7 +567,7 @@ impl TodoParserConfig {
     }
 
     pub fn from_comment_styles(styles: Vec<CommentStyle>) -> Self {
-        let mut cfg = TodoParserConfig::new();
+        let mut cfg = TodoParserConfig::default();
         styles
             .into_iter()
             .for_each(|style| cfg.add_comment_style(style));
@@ -584,23 +575,20 @@ impl TodoParserConfig {
     }
 
     pub fn add_parser_config(&mut self, cfg: TodoParserConfig) {
-        self.singles.extend(cfg.singles.into_iter());
-        self.multis.extend(cfg.multis.into_iter());
-        self.borders.extend(cfg.borders.into_iter());
+        self.singles.extend(cfg.singles);
+        self.multis.extend(cfg.multis);
+        self.borders.extend(cfg.borders);
     }
 }
 
+#[derive(Default)]
 pub struct ParserConfigLookup(pub HashMap<String, TodoParserConfig>);
 
 impl ParserConfigLookup {
-    pub fn new() -> Self {
-        ParserConfigLookup(HashMap::new())
-    }
-
     pub fn add_lang(&mut self, language: SupportedLanguage) {
         let cfg = TodoParserConfig::from_comment_styles(language.comment_styles);
         for ext in language.file_extensions {
-            let old_cfg = self.0.entry(ext).or_insert(TodoParserConfig::new());
+            let old_cfg = self.0.entry(ext).or_default();
             old_cfg.add_parser_config(cfg.clone());
         }
     }

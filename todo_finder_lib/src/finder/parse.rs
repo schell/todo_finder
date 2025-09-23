@@ -62,7 +62,7 @@ pub fn parse_rg(i: &str) -> IResult<&str, Vec<(&str, Vec<usize>)>> {
 mod tests {
     use super::*;
 
-    const OUTPUT:&'static [u8] = b"\
+    const OUTPUT:&[u8] = b"\
 test_data/two.rs
 1:This is another test file. The following is some garbage from my dayjob, with TODO tags sprinkled in.
 13:// TODO: Here is an actual todo.
