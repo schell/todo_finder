@@ -1,6 +1,6 @@
 [package]
 name = "todo_finder"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Schell Scivally <efsubenovex@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -13,7 +13,7 @@ readme = "../README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.33"
+clap = { version = "4.5", features = ["derive"] }
 hyper = "0.13"
 hyper-tls = "0.4"
 pretty_env_logger = "0.4"

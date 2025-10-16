@@ -1,5 +1,7 @@
 [workspace]
 members = [
-  "todo_finder_lib",
-  "todo_finder",
+  "crates/todo_finder_lib",
+  "crates/todo_finder",
 ]
+
+resolver = "2"
