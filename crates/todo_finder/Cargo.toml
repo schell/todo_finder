@@ -13,10 +13,14 @@ readme = "../../README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-channel.workspace = true
 clap.workspace = true
-hyper.workspace = true
-hyper-tls.workspace = true
-pretty_env_logger.workspace = true
+console.workspace = true
+env_logger.workspace = true
+futures.workspace = true
+indicatif.workspace = true
+log.workspace = true
+octocrab.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 todo_finder_lib.workspace = true

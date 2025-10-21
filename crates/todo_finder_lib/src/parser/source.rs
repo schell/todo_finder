@@ -6,12 +6,14 @@ use super::{
 
 use nom::{
     branch, bytes::complete as bytes, character::complete as character, combinator,
-    error::ErrorKind, multi, Err, IResult,
+    error::ErrorKind, multi, Err, IResult, Parser,
 };
 use std::collections::HashMap;
 
 #[cfg(test)]
 mod test_my_assumptions {
+    use nom::Parser;
+
     use super::*;
 
     fn _sandbox() {
@@ -37,14 +39,14 @@ mod test_my_assumptions {
     #[test]
     fn not_eating_what_it_do() {
         let i = "blah1 blah2";
-        if let Ok((i, ())) = combinator::not(todo_tag)(i) {
+        if let Ok((i, ())) = combinator::not(todo_tag).parse(i) {
             assert_eq!(i, "blah1 blah2");
         } else {
             panic!("Failed");
         }
 
         let i = "TODO: blah1 blah2";
-        if let Ok((_, ())) = combinator::not(todo_tag)(i) {
+        if let Ok((_, ())) = combinator::not(todo_tag).parse(i) {
             panic!("Failed");
         }
     }
@@ -96,7 +98,7 @@ mod test_my_assumptions {
         let bytes = "    # TODO: Let's have a byte to eat. Ok.\n    # TODO(): Nah, let's just \
                      have a nibble.\n    \n";
         assert_eq!(
-            multi::many1(single_line_todo(vec![], "#".into()))(bytes),
+            multi::many1(single_line_todo(vec![], "#".into())).parse(bytes),
             Ok((
                 "    \n",
                 vec![
@@ -249,7 +251,8 @@ pub fn comment_start(
         let i = {
             let mut input_left = i;
             'eat_borders: for border in borders.iter() {
-                let (input, ate) = combinator::opt(bytes::tag(border.as_str()))(input_left)?;
+                let (input, ate) =
+                    combinator::opt(bytes::tag(border.as_str())).parse(input_left)?;
                 input_left = input;
                 if ate.is_some() {
                     break 'eat_borders;
@@ -282,7 +285,7 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
 /// It will also eat any assigned name following the todo tag and return it.
 ///
 /// ```rust
-/// use nom::multi;
+/// use nom::{multi, Parser};
 /// use todo_finder_lib::parser::source::*;
 ///
 /// assert_eq!(todo_tag("@todo "), Ok(("", None)));
@@ -291,7 +294,7 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
 /// assert_eq!(todo_tag("FIXME"), Ok(("", None)));
 ///
 /// let all_text = "TODO(schell) FIXME (mitchellwrosen) @todo(imalsogreg)";
-/// let parsed = multi::many1(|i| todo_tag(i))(all_text);
+/// let parsed = multi::many1(|i| todo_tag(i)).parse(all_text);
 /// assert_eq!(
 ///     parsed,
 ///     Ok((
@@ -302,12 +305,13 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
 /// ```
 pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
     let (i, _) = character::space0(i)?;
+    // TODO: Add todo!() Rust support
     let tags = (bytes::tag("TODO"), bytes::tag("FIXME"), bytes::tag("@todo"));
-    let (i, _) = branch::alt(tags)(i)?;
+    let (i, _) = branch::alt(tags).parse(i)?;
     let (i, _) = character::space0(i)?;
-    let (i, may_name) = combinator::opt(|i| assignee(i))(i)?;
+    let (i, may_name) = combinator::opt(|i| assignee(i)).parse(i)?;
     let (i, _) = character::space0(i)?;
-    let (i, _) = combinator::opt(character::char(':'))(i)?;
+    let (i, _) = combinator::opt(character::char(':')).parse(i)?;
     let (i, _) = character::space0(i)?;
     Ok((i, may_name))
 }
@@ -346,7 +350,7 @@ pub fn sentence_and_terminator(i: &str) -> IResult<&str, &str> {
     'eating_sentences: loop {
         let (j, sentence) = bytes::take_till(is_terminator)(ii)?;
         let (j, terminators) = bytes::take_while(is_terminator)(j)?;
-        let (j, space) = combinator::opt(character::char(' '))(j)?;
+        let (j, space) = combinator::opt(character::char(' ')).parse(j)?;
         ii = j;
         n += sentence.len();
         n += terminators.len();
@@ -440,7 +444,7 @@ pub fn single_line_comment(
     let parse_comment_start = comment_start(borders, prefix);
     move |i| {
         let (i, _) = parse_comment_start(i)?;
-        let (i, _) = combinator::not(todo_tag)(i)?;
+        let (i, _) = combinator::not(todo_tag).parse(i)?;
         take_to_eol(i)
     }
 }
@@ -475,7 +479,7 @@ pub fn single_line_todo(
         let (i, may_name) = todo_tag(i)?;
         let (i, (title, desc0)) = parse_title_desc(i)?;
         let parse_single_line = single_line_comment(borders.clone(), prefix.clone());
-        let (i, mut desc_n) = multi::many0(parse_single_line)(i)?;
+        let (i, mut desc_n) = multi::many0(parse_single_line).parse(i)?;
         desc_n.insert(0, desc0);
         desc_n.retain(|desc| !desc.is_empty());
         Ok((i, (may_name, title, desc_n)))
@@ -520,7 +524,7 @@ pub fn multi_line_todo(
     let parse_title_desc = title_and_rest_till_eol(borders.clone());
     move |i| {
         let (i, _) = character::space0(i)?;
-        let (i, _) = combinator::opt(comment_start(borders.clone(), prefix.clone()))(i)?;
+        let (i, _) = combinator::opt(comment_start(borders.clone(), prefix.clone())).parse(i)?;
         let (i, may_name) = todo_tag(i)?;
         let (i, (title, desc0)) = parse_title_desc(i)?;
         if desc0 == suffix {
@@ -679,7 +683,7 @@ pub fn parse_todos<'a>(cfg: TodoParserConfig) -> impl FnMut(&'a str) -> Vec<Pars
             if ii.is_empty() {
                 break 'find;
             }
-            if let Ok((j, (_, todo))) = parser(ii) {
+            if let Ok((j, (_, todo))) = parser.parse(ii) {
                 ii = j;
                 todos.push(todo);
             } else {

@@ -1,11 +1,14 @@
-use nom::{bytes::complete as bytes, character::complete as character, combinator, IResult};
-
-use super::{
-    finder::FileSearcher,
-    github::{GitHubIssue, GitHubPatch},
+use nom::{
+    bytes::complete as bytes, character::complete as character, combinator, IResult, Parser,
 };
+use snafu::ResultExt;
+use tokio::io::AsyncReadExt;
+
+use crate::{Error, IoSnafu, Message, NomSnafu, PrefixSnafu};
+
+use super::{finder::FileSearcher, github::GitHubPatch};
 use serde::Deserialize;
-use std::{collections::HashMap, fs::File, io::prelude::*, path::Path};
+use std::{collections::HashMap, path::Path};
 
 pub mod issue;
 pub mod langs;
@@ -17,7 +20,7 @@ use source::ParsedTodo;
 /// Eat a whole line and optionally its ending but don't return that ending.
 pub fn take_to_eol(i: &str) -> IResult<&str, &str> {
     let (i, ln) = bytes::take_till(|c| c == '\r' || c == '\n')(i)?;
-    let (i, _) = combinator::opt(character::line_ending)(i)?;
+    let (i, _) = combinator::opt(character::line_ending).parse(i)?;
     Ok((i, ln))
 }
 
@@ -43,7 +46,6 @@ pub struct IssueHead<K> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IssueBody<T> {
     pub descs_and_srcs: Vec<(Vec<String>, T)>,
-    pub branches: Vec<String>,
 }
 
 impl IssueBody<FileTodoLocation> {
@@ -53,7 +55,7 @@ impl IssueBody<FileTodoLocation> {
         owner: &str,
         repo: &str,
         checkout: &str,
-    ) -> Result<String, String> {
+    ) -> Result<String, Error> {
         let mut lines: Vec<String> = vec![];
         for (desc_lines, loc) in self.descs_and_srcs.iter() {
             let desc = desc_lines.clone().join("\n");
@@ -80,16 +82,9 @@ impl<ExId, Loc: PartialEq + Eq> Issue<ExId, Loc> {
             },
             body: IssueBody {
                 descs_and_srcs: vec![],
-                branches: vec![],
             },
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct IssueMap<ExternalId, TodoLocation: PartialEq + Eq> {
-    pub parsed_from: ParsingSource,
-    pub todos: HashMap<String, Issue<ExternalId, TodoLocation>>,
 }
 
 /// A todo location in the local filesystem.
@@ -123,11 +118,11 @@ impl FileTodoLocation {
         owner: &str,
         repo: &str,
         checkout: &str,
-    ) -> Result<String, String> {
+    ) -> Result<String, Error> {
         let path: &Path = Path::new(&self.file);
-        let relative: &Path = path
-            .strip_prefix(cwd)
-            .map_err(|e| format!("could not relativize path {:#?}: {}", path, e))?;
+        let relative: &Path = path.strip_prefix(cwd).context(PrefixSnafu {
+            path: path.to_path_buf(),
+        })?;
         let file_and_range = [
             format!("{}", relative.display()),
             format!("#L{}", self.src_span.0),
@@ -151,12 +146,22 @@ impl FileTodoLocation {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct IssueMap<ExternalId, TodoLocation: PartialEq + Eq> {
+    pub parsed_from: ParsingSource,
+    pub todos: HashMap<String, Issue<ExternalId, TodoLocation>>,
+}
+
 impl<K, V: Eq> IssueMap<K, V> {
     pub fn new(parsed_from: ParsingSource) -> IssueMap<K, V> {
         IssueMap {
             parsed_from,
             todos: HashMap::new(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.todos.is_empty()
     }
 }
 
@@ -168,11 +173,13 @@ impl IssueMap<u64, GitHubTodoLocation> {
         }
     }
 
-    pub fn add_issue(&mut self, github_issue: &GitHubIssue) {
-        if let Ok((_, body)) = issue::issue_body(&github_issue.body) {
-            let mut issue = Issue::new(github_issue.number, github_issue.title.clone());
-            issue.body = body;
-            self.todos.insert(github_issue.title.clone(), issue);
+    pub fn add_issue(&mut self, github_issue: &octocrab::models::issues::Issue) {
+        if let Some(body) = github_issue.body.as_ref() {
+            if let Ok((_, body)) = issue::issue_body(body) {
+                let mut issue = Issue::new(github_issue.number, github_issue.title.clone());
+                issue.body = body;
+                self.todos.insert(github_issue.title.clone(), issue);
+            }
         }
     }
 
@@ -218,16 +225,25 @@ impl IssueMap<u64, GitHubTodoLocation> {
     }
 }
 
+impl<K> IssueMap<K, FileTodoLocation> {
+    pub fn distinct_len(&self) -> usize {
+        self.todos.len()
+    }
+
+    pub fn total_len(&self) -> usize {
+        self.todos
+            .values()
+            .map(|issue| issue.body.descs_and_srcs.len())
+            .sum()
+    }
+}
+
 impl IssueMap<(), FileTodoLocation> {
     pub fn new_source_todos() -> Self {
         IssueMap {
             parsed_from: ParsingSource::SourceCode,
             todos: HashMap::new(),
         }
-    }
-
-    pub fn distinct_len(&self) -> usize {
-        self.todos.len()
     }
 
     pub fn add_parsed_todo(&mut self, todo: &ParsedTodo, loc: FileTodoLocation) {
@@ -251,11 +267,13 @@ impl IssueMap<(), FileTodoLocation> {
         issue.body.descs_and_srcs.push((desc_lines, loc));
     }
 
-    pub fn from_files_in_directory(
+    pub async fn from_files_in_directory(
         dir: &str,
         excludes: &[String],
-    ) -> Result<IssueMap<(), FileTodoLocation>, String> {
-        let possible_todos = FileSearcher::find(dir, excludes)?;
+    ) -> Result<IssueMap<(), FileTodoLocation>, Error> {
+        Message::FindingTodosInSourceCode.send();
+
+        let possible_todos = FileSearcher::find(dir, excludes).await?;
         let mut todos = IssueMap::new_source_todos();
         let language_map = langs::language_map();
 
@@ -274,25 +292,43 @@ impl IssueMap<(), FileTodoLocation> {
             let languages = language_map.get(ext);
             if languages.is_none() {
                 // TODO: Deadletter the file name as unsupported
-                println!("possible TODO found in unsupported file: {:#?}", path);
+                Message::UnsupportedFile {
+                    path: path.to_path_buf(),
+                    todo: format!(
+                        "line{}",
+                        if possible_todo.lines_to_search.len() == 1 {
+                            format!(" {}", possible_todo.lines_to_search.first().unwrap())
+                        } else {
+                            format!(
+                                "s {}",
+                                possible_todo
+                                    .lines_to_search
+                                    .iter()
+                                    .map(|n| n.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            )
+                        }
+                    ),
+                }
+                .send();
                 continue;
             }
             let languages = languages.expect("impossible!");
 
             // Open the file and load the contents
-            let mut file = File::open(path)
-                .map_err(|e| format!("could not open file: {}\n{}", path.display(), e))?;
+            let mut file = tokio::fs::File::open(path).await.context(IoSnafu)?;
             let mut contents = String::new();
-            file.read_to_string(&mut contents)
-                .map_err(|e| format!("could not read file {:#?}: {}", path, e))?;
+            file.read_to_string(&mut contents).await.context(IoSnafu)?;
 
             let mut current_line = 1;
             let mut i = contents.as_str();
             for line in possible_todo.lines_to_search.into_iter() {
                 // Seek to the correct line...
                 while line > current_line {
-                    let (j, _) =
-                        take_to_eol(i).map_err(|e| format!("couldn't take line:\n{}", e))?;
+                    let (j, _) = take_to_eol(i).map_err(|e| e.to_owned()).context(NomSnafu {
+                        msg: "couldn't take line",
+                    })?;
                     i = j;
                     current_line += 1;
                 }
@@ -315,11 +351,18 @@ impl IssueMap<(), FileTodoLocation> {
                             ),
                         };
                         todos.add_parsed_todo(&parsed_todo, loc);
+                        Message::FoundTodo.send();
                     }
                 }
             }
         }
 
+        Message::FoundTodos {
+            distinct: todos.distinct_len(),
+            total: todos.total_len(),
+            markdown_text: todos.as_markdown(),
+        }
+        .send();
         Ok(todos)
     }
 

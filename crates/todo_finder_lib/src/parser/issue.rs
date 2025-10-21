@@ -1,6 +1,7 @@
 //! # Parsing todos from an issue.
-use nom::{bytes::complete as bytes, character::complete as character, combinator, multi, IResult};
-use std::collections::HashMap;
+use nom::{
+    bytes::complete as bytes, character::complete as character, combinator, multi, IResult, Parser,
+};
 
 use super::{take_to_eol, IssueBody};
 
@@ -8,7 +9,7 @@ use super::{take_to_eol, IssueBody};
 /// Parse the file and line location from an issue decription.
 pub fn src_location0(i: &str) -> IResult<&str, (&str, usize)> {
     let (i, _) = bytes::tag("Located in ")(i)?;
-    let dub_quote = character::char('"');
+    let mut dub_quote = character::char('"');
     let (i, _) = dub_quote(i)?;
     let (i, file) = bytes::take_till(|c| c == '"')(i)?;
     let (i, _) = dub_quote(i)?;
@@ -51,7 +52,7 @@ pub fn span_from_github_link(i: &str) -> IResult<&str, (usize, Option<usize>)> {
             .expect("could not convert line number: span_from_github_link::fn");
         Ok((ii, end))
     }
-    let (i, may_end) = combinator::opt(convert_line)(i)?;
+    let (i, may_end) = combinator::opt(convert_line).parse(i)?;
     Ok((i, (start, may_end)))
 }
 
@@ -127,7 +128,7 @@ pub fn todo_location_from_github_link(i: &str) -> IResult<&str, GitHubTodoLocati
 /// );
 /// ```
 pub fn todo_location_from_github_markdown_link(i: &str) -> IResult<&str, GitHubTodoLocation> {
-    let (i, may_tloc) = combinator::opt(todo_location_from_github_link)(i)?;
+    let (i, may_tloc) = combinator::opt(todo_location_from_github_link).parse(i)?;
     if let Some(tloc) = may_tloc {
         Ok((i, tloc))
     } else {
@@ -142,133 +143,22 @@ pub fn todo_location_from_github_markdown_link(i: &str) -> IResult<&str, GitHubT
     }
 }
 
-/// Holds a branch and whether a todo exists on said branch, or if it has been
-/// removed from said branch.
-#[derive(Clone, Debug, PartialEq)]
-pub struct TodoStory<'a> {
-    pub branch: &'a str,
-    pub is_closed: bool,
-}
-
-impl<'a> TodoStory<'a> {
-    pub fn is_open(&self) -> bool {
-        !self.is_closed
-    }
-}
-
-/// Parse a todo story from an issue comment.
-///
-/// ```rust
-/// use nom::multi;
-/// use todo_finder_lib::parser::issue::*;
-///
-/// let bytes = "\
-/// * Opened on master
-/// * Found on develop
-/// * Closed on develop
-/// * Closed on master
-/// ";
-///
-/// assert_eq!(
-///     multi::many1(todo_story)(bytes),
-///     Ok((
-///         "",
-///         vec![
-///             TodoStory {
-///                 branch: "master",
-///                 is_closed: false
-///             },
-///             TodoStory {
-///                 branch: "develop",
-///                 is_closed: false
-///             },
-///             TodoStory {
-///                 branch: "develop",
-///                 is_closed: true
-///             },
-///             TodoStory {
-///                 branch: "master",
-///                 is_closed: true
-///             },
-///         ]
-///     ))
-/// );
-/// ```
-pub fn todo_story(i: &'_ str) -> IResult<&'_ str, TodoStory<'_>> {
-    let (i, _) = character::char('*')(i)?;
-    let alts = [
-        (" Opened on ", false),
-        (" Found on ", false),
-        (" Closed on ", true),
-    ];
-
-    let mut is_closed = true;
-    let mut ii = i;
-    'story: for (alt, alt_is_closed) in &alts {
-        let (j, may_story) = combinator::opt(bytes::tag(*alt))(ii)?;
-        ii = j;
-        if may_story.is_some() {
-            is_closed = *alt_is_closed;
-            break 'story;
-        }
-    }
-
-    let (i, branch) = take_to_eol(ii)?;
-    Ok((i, TodoStory { branch, is_closed }))
-}
-
-/// Collapse and filter the input stories into a vector of branches that the todo
-/// still exists on.
-pub fn branches_todo_is_found_on(stories: Vec<TodoStory<'_>>) -> Vec<&str> {
-    let mut map: HashMap<&str, bool> = HashMap::new();
-    for story in stories.into_iter() {
-        map.insert(story.branch, story.is_closed);
-    }
-
-    let mut branches = map
-        .into_iter()
-        .filter_map(
-            |(branch, is_closed)| {
-                if is_closed {
-                    None
-                } else {
-                    Some(branch)
-                }
-            },
-        )
-        .collect::<Vec<_>>();
-    branches.sort();
-    branches
-}
-
-/// Parse a vector of TodoStory.
-pub fn todo_stories(i: &'_ str) -> IResult<&'_ str, Vec<TodoStory<'_>>> {
-    multi::many1(todo_story)(i)
-}
-
 /// Parse a todo from an issue.
 /// Returns the location of the todo and the lines of the todo's description.
 pub fn issue_todo(i: &str) -> IResult<&str, (Vec<&str>, GitHubTodoLocation)> {
-    multi::many_till(take_to_eol, todo_location_from_github_markdown_link)(i)
+    multi::many_till(take_to_eol, todo_location_from_github_markdown_link).parse(i)
 }
 
 /// Parse the entire body of an issue.
-/// TODO: Remove stories entirely.
 /// We really only need to operate on one branch.
 pub fn issue_body(i: &str) -> IResult<&str, IssueBody<GitHubTodoLocation>> {
     let mut ii = i;
     let mut descs_todos = vec![];
-    let mut may_stories = None;
     'todos: loop {
         let (j, desc_todo) = issue_todo(ii)?;
         descs_todos.push(desc_todo);
-        let (j, _) = multi::many0(character::newline)(j)?;
-        let (j, my_may_stories) = combinator::opt(todo_stories)(j)?;
+        let (j, _) = multi::many0(character::newline).parse(j)?;
         ii = j;
-        if my_may_stories.is_some() {
-            may_stories = my_may_stories;
-            break 'todos;
-        }
         if j.is_empty() {
             break 'todos;
         }
@@ -284,22 +174,10 @@ pub fn issue_body(i: &str) -> IResult<&str, IssueBody<GitHubTodoLocation>> {
         .collect::<Vec<_>>();
     descs_todos.sort_by(|(_, a_loc), (_, b_loc)| a_loc.cmp(b_loc));
 
-    let branches = if let Some(stories) = may_stories {
-        let mut branches: Vec<String> = branches_todo_is_found_on(stories)
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect();
-        branches.sort();
-        branches
-    } else {
-        vec![]
-    };
-
     Ok((
         ii,
         IssueBody {
             descs_and_srcs: descs_todos,
-            branches,
         },
     ))
 }
@@ -363,59 +241,6 @@ https://github.com/schell/src-of-truth/blob/\
         );
     }
 
-    #[test]
-    fn can_parse_todo_stories() {
-        let bytes = "\
-* Opened on mitchell-diagram
-* Found on master
-* Found on module-headers
-* Found on mitchell-resourcet
-* Closed on module-headers
-* Found on move-stylish
-* Closed on mitchell-resourcet
-* Found on pretty-gh-links
-* Found on mitchell-gh
-* Found on mitchell-pemfile-arg
-* Closed on mitchell-pemfile-arg
-* Found on feature-wip
-* Found on mitchell-190
-* Found on mitchell-191
-* Found on mitchell-236
-* Closed on mitchell-190
-* Closed on mitchell-191
-* Closed on mitchell-236
-* Found on mitchell-241
-* Found on restart-services
-* Closed on feature-wip
-* Closed on mitchell-241
-* Closed on mitchell-256
-* Closed on restart-services
-* Closed on feature-pretty-gh-links
-* Closed on feature-gh-pretty-links-2
-* Closed on specific-runner-hack
-* Closed on mitchell-gh
-* Closed on feature-purescript-flavor
-* Closed on metrics-class
-* Closed on error-260
-* Closed on feature-job-metrics
-* Closed on master
-* Closed on storyline-tests
-* Closed on mitchell-gh-auth
-* Closed on manager-retries
-* Closed on revert-263-feature-pretty-gh-links
-* Closed on pretty-gh-links
-* Closed on mitchell-diagram
-* Closed on comment-branches
-* Closed on feature-mitchell-fetch-issues
-";
-        let may_stories = todo_stories(bytes);
-        assert!(may_stories.is_ok());
-
-        let (_, stories) = may_stories.unwrap();
-        let branches = branches_todo_is_found_on(stories);
-        assert_eq!(branches, vec!["move-stylish"]);
-    }
-
     // TODO: round trip tests for parsing issues and writing them.
     #[test]
     fn can_parse_issue_todo() {
@@ -460,8 +285,6 @@ This is another description.
 [stuff](https://github.com/schell/repo/blob/abighash/src/Other.hs#L23 \
                      \"title\")
 
-* Found on master
-* Found on develop
 ";
 
         assert_eq!(
@@ -489,7 +312,6 @@ This is another description.
                             }
                         ),
                     ],
-                    branches: vec!["develop".into(), "master".into(),]
                 }
             ))
         );

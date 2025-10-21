@@ -1,5 +1,7 @@
 //! Running ripgrep to find TODOs.
-use std::process::Command;
+use snafu::ResultExt;
+
+use crate::{utils::get_rg_output, Error, ParseRgSnafu, RgUtf8Snafu};
 
 use super::parse;
 
@@ -18,40 +20,13 @@ impl PossibleTodosInFile {
     }
 }
 
-/// Run `rg` with the path and pattern given, returning the result bytes if
-/// successful.
-pub(crate) fn get_rg_output(
-    path: &str,
-    pattern: &str,
-    excludes: &[String],
-) -> Result<Vec<u8>, String> {
-    let mut cmd = Command::new("rg");
-    let _ = cmd.arg("--heading").arg("--line-number");
-    for exclude in excludes.iter() {
-        cmd.arg("-g").arg(format!("!{}", exclude));
-    }
-    let _ = cmd.arg(pattern).arg(path);
-
-    println!("running rg:\n{:#?}", cmd);
-
-    let output = cmd
-        .output()
-        .map_err(|e| format!("error using rg: {:#?}", e))?;
-    if output.status.success() {
-        Ok(output.stdout)
-    } else {
-        // For some reason rg returns an error when there are no results...
-        Ok(vec![])
-    }
-}
-
 /// Parse the output of `rg` into a map of file to possible todo locations.
-pub(crate) fn parse_rg_output(output: &[u8]) -> Result<Vec<PossibleTodosInFile>, String> {
-    let rg_output = std::str::from_utf8(output)
-        .map_err(|e| format!("could not convert rg output to utf8: {:#?}", e))?;
+pub(crate) fn parse_rg_output(output: &[u8]) -> Result<Vec<PossibleTodosInFile>, Error> {
+    let rg_output = std::str::from_utf8(output).context(RgUtf8Snafu)?;
 
-    let (_, files) =
-        parse::parse_rg(rg_output).map_err(|e| format!("rg nom parse error: {:#?}", e))?;
+    let (_, files) = parse::parse_rg(rg_output)
+        .map_err(|e| e.to_owned())
+        .context(ParseRgSnafu)?;
 
     let mut todos: Vec<_> = files
         .into_iter()
@@ -64,15 +39,15 @@ pub(crate) fn parse_rg_output(output: &[u8]) -> Result<Vec<PossibleTodosInFile>,
 
 /// Run `rg` with the path and some commonly used TODO patterns, returning the
 /// result bytes if successful.
-pub(crate) fn get_rg_output_with_common_patterns(
+pub async fn get_rg_output_with_common_patterns(
     path: &str,
     excludes: &[String],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, Error> {
     let patterns = ["TODO", "@todo", "FIXME"];
 
     let mut todos = vec![];
     for pattern in patterns.iter() {
-        todos.extend(get_rg_output(path, pattern, excludes)?);
+        todos.extend(get_rg_output(path, pattern, excludes).await?);
     }
 
     Ok(todos)

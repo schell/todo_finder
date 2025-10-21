@@ -13,9 +13,12 @@ readme = "../README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyper = "0.13"
-hyper-tls = "0.4"
-nom = "^7.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "0.2", features = ["full"] }
+async-channel.workspace = true
+futures.workspace = true
+log.workspace = true
+nom.workspace = true
+octocrab.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+snafu.workspace = true
+tokio.workspace = true

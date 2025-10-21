@@ -1,12 +1,14 @@
 use nom::{
     branch, bytes::complete as bytes, character::complete as character, combinator, multi, IResult,
+    Parser,
 };
 
 pub fn parse_owner_and_repo_from_config(i: &str) -> IResult<&str, (&str, &str)> {
     let (i, (owner, repo)) = branch::alt((
         parse_owner_and_repo_from_config_git,
         parse_owner_and_repo_from_config_http,
-    ))(i)?;
+    ))
+    .parse(i)?;
     Ok((i, (owner.trim(), repo.trim())))
 }
 
@@ -22,7 +24,7 @@ pub fn parse_owner_and_repo_from_config_git(i: &str) -> IResult<&str, (&str, &st
 
 pub fn parse_owner_and_repo_from_config_http(i: &str) -> IResult<&str, (&str, &str)> {
     let (i, _) = bytes::tag("http")(i)?;
-    let (i, _) = combinator::opt(character::char('s'))(i)?;
+    let (i, _) = combinator::opt(character::char('s')).parse(i)?;
     let (i, _) = bytes::tag("://")(i)?;
     let (i, _) = bytes::take_till(|c| c == '/')(i)?;
     let (i, _) = character::char('/')(i)?;
@@ -35,7 +37,7 @@ pub fn parse_owner_and_repo_from_config_http(i: &str) -> IResult<&str, (&str, &s
 /// Eat a whole line and optionally its ending but don't return that ending.
 pub fn take_to_eol(i: &str) -> IResult<&str, &str> {
     let (i, ln) = bytes::take_till(|c| c == '\r' || c == '\n')(i)?;
-    let (i, _) = combinator::opt(character::line_ending)(i)?;
+    let (i, _) = combinator::opt(character::line_ending).parse(i)?;
     Ok((i, ln))
 }
 
@@ -49,13 +51,14 @@ pub fn parse_rg_line(i: &str) -> IResult<&str, usize> {
 
 pub fn parse_rg_file(i: &str) -> IResult<&str, (&str, Vec<usize>)> {
     let (i, file) = take_to_eol(i)?;
-    let (i, line_nums) = multi::many1(parse_rg_line)(i)?;
-    let (i, _) = combinator::opt(character::line_ending)(i)?;
+    let (i, line_nums) = multi::many1(parse_rg_line).parse(i)?;
+    let (i, _) = combinator::opt(character::line_ending).parse(i)?;
     Ok((i, (file, line_nums)))
 }
 
 pub fn parse_rg(i: &str) -> IResult<&str, Vec<(&str, Vec<usize>)>> {
-    multi::many1(parse_rg_file)(i)
+    let mut parser = multi::many1(parse_rg_file);
+    parser.parse(i)
 }
 
 #[cfg(test)]
