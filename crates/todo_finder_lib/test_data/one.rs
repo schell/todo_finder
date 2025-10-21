@@ -29,3 +29,16 @@ Of course your argument values will be different depending on the lenz db you're
 
 /// TODO: Another todo.
 /// Another description
+
+todo!("A special Rust-only todo");
+todo!(
+    "A special Rust-only todo \
+    on more than one line"
+);
+todo!(
+    "A special Rust-only todo \
+    on more than one line \
+    as a multi-line string"
+);
+
+

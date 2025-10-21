@@ -43,10 +43,8 @@ pub async fn get_rg_output_with_common_patterns(
     path: &str,
     excludes: &[String],
 ) -> Result<Vec<u8>, Error> {
-    let patterns = ["TODO", "@todo", "FIXME"];
-
     let mut todos = vec![];
-    for pattern in patterns.iter() {
+    for pattern in crate::parser::source::TAG_PATTERNS {
         todos.extend(get_rg_output(path, pattern, excludes).await?);
     }
 
@@ -86,6 +84,31 @@ mod tests {
                     lines_to_search: vec![1, 13, 15, 32],
                 },
             ]
+        )
+    }
+
+    #[test]
+    fn can_search_rust_todos_in_files() {
+        let may_output = Command::new("rg")
+            .arg("--heading")
+            .arg("--line-number")
+            .arg("todo!")
+            .arg("test_data")
+            .output();
+
+        assert!(may_output.is_ok());
+        let output = may_output.unwrap();
+        assert!(output.status.success());
+
+        let may_files = parse_rg_output(&output.stdout);
+        assert!(may_files.is_ok());
+        let files = may_files.unwrap();
+        assert_eq!(
+            vec![PossibleTodosInFile {
+                file: "test_data/one.rs".into(),
+                lines_to_search: vec![33, 34, 37],
+            }],
+            files,
         )
     }
 }

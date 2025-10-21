@@ -103,6 +103,10 @@ pub fn python_style() -> Vec<CommentStyle> {
     vec![from_single("#"), from_multi("\"\"\"", "\"\"\"")]
 }
 
+pub fn rust_lang() -> SupportedLanguage {
+    lang("Rust", c_style(), vec!["rs", "rc"])
+}
+
 pub fn all_supported_langs() -> HashSet<SupportedLanguage> {
     vec![
         lang("Actionscript", c_style(), vec!["as"]),
@@ -222,7 +226,7 @@ pub fn all_supported_langs() -> HashSet<SupportedLanguage> {
             vec![from_single("#"), from_multi("=begin", "=end")],
             vec!["rb"],
         ),
-        lang("Rust", c_style(), vec!["rs", "rc"]),
+        rust_lang(),
         lang("Sbt", c_style(), vec!["sbt"]),
         lang("Scala", c_style(), vec!["sc", "scala"]),
         lang("Scss", vec![from_single("//")], vec!["scss"]),

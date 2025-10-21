@@ -5,8 +5,12 @@ use super::{
 };
 
 use nom::{
-    branch, bytes::complete as bytes, character::complete as character, combinator,
-    error::ErrorKind, multi, Err, IResult, Parser,
+    branch,
+    bytes::complete::{self as bytes, is_not},
+    character::complete as character,
+    combinator,
+    error::ErrorKind,
+    multi, Err, IResult, Parser,
 };
 use std::collections::HashMap;
 
@@ -92,7 +96,10 @@ mod test_my_assumptions {
         let bytes = "-- TODO: This is a todo.\n\n\n-------------\n";
         assert_eq!(
             single_line_todo(vec![], "--".into())(bytes),
-            Ok(("\n\n-------------\n", (None, "This is a todo.", vec![])))
+            Ok((
+                "\n\n-------------\n",
+                ParsedTodo::from_title("This is a todo.")
+            ))
         );
 
         let bytes = "    # TODO: Let's have a byte to eat. Ok.\n    # TODO(): Nah, let's just \
@@ -102,8 +109,8 @@ mod test_my_assumptions {
             Ok((
                 "    \n",
                 vec![
-                    (None, "Let's have a byte to eat.", vec!["Ok."]),
-                    (Some(""), "Nah, let's just have a nibble.", vec![])
+                    ParsedTodo::from_title("Let's have a byte to eat.").with_desc("Ok."),
+                    ParsedTodo::from_title("Nah, let's just have a nibble.")
                 ]
             ))
         );
@@ -111,7 +118,7 @@ mod test_my_assumptions {
         let bytes = "    # TODO: Do A.\n    # TODO: Do B.\n";
         assert_eq!(
             single_line_todo(vec![], "#".into())(bytes),
-            Ok(("    # TODO: Do B.\n", (None, "Do A.", vec![])))
+            Ok(("    # TODO: Do B.\n", ParsedTodo::from_title("Do A.")))
         );
 
         let bytes = "    # TODO: aborted evaluations\n    # TODO: dependency failed without \
@@ -122,7 +129,7 @@ mod test_my_assumptions {
             Ok((
                 "    # TODO: dependency failed without propagated builds
    for tr in d('img[alt=\"Failed\"]').parents('tr'):\n",
-                (None, "aborted evaluations", vec![])
+                ParsedTodo::from_title("aborted evaluations")
             ))
         );
     }
@@ -138,18 +145,25 @@ mod test_my_assumptions {
             haskell_parser(bytes),
             Ok((
                 "\n",
-                (
-                    None,
-                    "Make sure this comment gets turned",
-                    vec!["into a todo.",]
-                )
+                ParsedTodo {
+                    assignee: None,
+                    title: "Make sure this comment gets turned",
+                    desc_lines: vec!["into a todo.",]
+                }
             ))
         );
 
         let bytes = "{- | TODO: List the steps to draw an owl. -}\n";
         assert_eq!(
             haskell_parser(bytes),
-            Ok(("", (None, "List the steps to draw an owl.", vec![])))
+            Ok((
+                "",
+                ParsedTodo {
+                    assignee: None,
+                    title: "List the steps to draw an owl.",
+                    desc_lines: vec![]
+                }
+            ))
         );
 
         let bytes = "{- TODO: Figure out why duplicate tickets are being made.
@@ -162,14 +176,14 @@ mod test_my_assumptions {
             haskell_parser(bytes),
             Ok((
                 "\n",
-                (
-                    None,
-                    "Figure out why duplicate tickets are being made.",
-                    vec![
+                ParsedTodo {
+                    assignee: None,
+                    title: "Figure out why duplicate tickets are being made.",
+                    desc_lines: vec![
                         "The todo above \"Add log levels\" is getting re-created on each check-in.",
                         "Fix dis shizz!"
                     ]
-                )
+                }
             ))
         );
     }
@@ -281,6 +295,16 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
     Ok((i, name))
 }
 
+/// Patterns that denote a TODO.
+pub const TAG_PATTERNS: &[&str; 4] = &["TODO", "FIXME", "@todo", "todo!"];
+
+/// The start of a TODO.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TodoTag<'a> {
+    Standard(&'a str),
+    RustMacro,
+}
+
 /// Eat a todo tag. Currently supports `TODO`, `FIXME` and `@todo`.
 /// It will also eat any assigned name following the todo tag and return it.
 ///
@@ -292,28 +316,43 @@ pub fn assignee(i: &str) -> IResult<&str, &str> {
 /// assert_eq!(todo_tag("TODO "), Ok(("", None)));
 /// assert_eq!(todo_tag("TODO"), Ok(("", None)));
 /// assert_eq!(todo_tag("FIXME"), Ok(("", None)));
+/// assert_eq!(todo_tag("todo!"), Ok(("", None)));
 ///
-/// let all_text = "TODO(schell) FIXME (mitchellwrosen) @todo(imalsogreg)";
+/// let all_text = r#"TODO(schell) FIXME (mitchellwrosen) @todo(imalsogreg) todo!("blah")"#;
 /// let parsed = multi::many1(|i| todo_tag(i)).parse(all_text);
 /// assert_eq!(
 ///     parsed,
 ///     Ok((
 ///         "",
-///         vec![Some("schell"), Some("mitchellwrosen"), Some("imalsogreg")]
+///         vec![
+///             Some(TodoTag::Standard("schell")),
+///             Some(TodoTag::Standard("mitchellwrosen")),
+///             Some(TodoTag::Standard("imalsogreg")),
+///             Some(TodoTag::RustMacro(r#""blah""#))
+///         ]
 ///     ))
 /// );
 /// ```
-pub fn todo_tag(i: &str) -> IResult<&str, Option<&str>> {
+pub fn todo_tag(i: &'_ str) -> IResult<&'_ str, Option<TodoTag<'_>>> {
     let (i, _) = character::space0(i)?;
-    // TODO: Add todo!() Rust support
-    let tags = (bytes::tag("TODO"), bytes::tag("FIXME"), bytes::tag("@todo"));
-    let (i, _) = branch::alt(tags).parse(i)?;
+    let [todo, fixme, at_todo, rust_todo] = TAG_PATTERNS;
+    let tags = (
+        bytes::tag(*todo),
+        bytes::tag(*fixme),
+        bytes::tag(*at_todo),
+        bytes::tag(*rust_todo),
+    );
+    let (i, tag) = branch::alt(tags).parse(i)?;
+    if &tag == rust_todo {
+        return Ok((i, Some(TodoTag::RustMacro)));
+    }
+
     let (i, _) = character::space0(i)?;
     let (i, may_name) = combinator::opt(|i| assignee(i)).parse(i)?;
     let (i, _) = character::space0(i)?;
     let (i, _) = combinator::opt(character::char(':')).parse(i)?;
     let (i, _) = character::space0(i)?;
-    Ok((i, may_name))
+    Ok((i, may_name.map(TodoTag::Standard)))
 }
 
 /// Eat a sentence and its terminator and a space.
@@ -460,7 +499,7 @@ pub fn single_line_comment(
 /// let bytes = "-- TODO: Hey there.\n--    Description.\n";
 /// assert_eq!(
 ///     single_line_todo(vec![], "--".into())(bytes),
-///     Ok(("", (None, "Hey there.", vec!["Description.".into()])))
+///     Ok(("", ParsedTodo::from_title("Hey there.").with_desc("Description.")))
 /// );
 /// ```
 #[allow(clippy::type_complexity)]
@@ -471,19 +510,69 @@ pub fn single_line_todo(
     // The comment prefix.
     // Eg. "--" for Haskell, "//" for Rust.
     prefix: String,
-) -> impl Fn(&str) -> IResult<&str, (Option<&str>, &str, Vec<&str>)> {
+) -> impl Fn(&str) -> IResult<&str, ParsedTodo> {
     let parse_comment_start = comment_start(borders.clone(), prefix.clone());
     let parse_title_desc = title_and_rest_till_eol(borders.clone());
     move |i| {
         let (i, _) = parse_comment_start(i)?;
         let (i, may_name) = todo_tag(i)?;
+        let may_name = match may_name {
+            Some(TodoTag::Standard(name)) => {
+                if name.is_empty() {
+                    None
+                } else {
+                    Some(name)
+                }
+            }
+            Some(TodoTag::RustMacro) => {
+                return rust_todo_content(i);
+            }
+            None => None,
+        };
         let (i, (title, desc0)) = parse_title_desc(i)?;
         let parse_single_line = single_line_comment(borders.clone(), prefix.clone());
         let (i, mut desc_n) = multi::many0(parse_single_line).parse(i)?;
         desc_n.insert(0, desc0);
         desc_n.retain(|desc| !desc.is_empty());
-        Ok((i, (may_name, title, desc_n)))
+        Ok((
+            i,
+            ParsedTodo {
+                assignee: may_name,
+                title,
+                desc_lines: desc_n,
+            },
+        ))
     }
+}
+
+pub fn rust_todo_content(i: &'_ str) -> IResult<&'_ str, ParsedTodo<'_>> {
+    let (i, content) =
+        nom::sequence::delimited(character::char('('), is_not(")"), character::char(')'))
+            .parse(i)?;
+    let content = content.trim();
+    let content = content.trim_matches('"');
+
+    let parse_title_desc = title_and_rest_till_eol(vec![]);
+    let (mut rest, (title, desc)) = parse_title_desc(content)?;
+    let mut desc_lines = vec![];
+    if !desc.is_empty() {
+        desc_lines.push(desc.trim().trim_end_matches("\\").trim());
+    }
+    while !rest.is_empty() {
+        let (next_rest, line) = take_to_eol(rest)?;
+        rest = next_rest;
+        if !line.is_empty() {
+            desc_lines.push(line.trim().trim_end_matches("\\").trim());
+        }
+    }
+    Ok((
+        i,
+        ParsedTodo {
+            assignee: None,
+            title: title.trim().trim_end_matches("\\").trim(),
+            desc_lines,
+        },
+    ))
 }
 
 /// Eat a todo that lives in a multi-line comment block.
@@ -501,11 +590,9 @@ pub fn single_line_todo(
 ///     haskell_parser(bytes),
 ///     Ok((
 ///         "\n",
-///         (
-///             None,
-///             "My todo title.",
-///             vec!["Description too. With more", "sentences over more lines."]
-///         )
+///         ParsedTodo::from_title("My todo title.")
+///           .with_desc("Description too. With more")
+///           .with_desc("sentences over more lines.")
 ///     ))
 /// );
 /// ```
@@ -520,15 +607,29 @@ pub fn multi_line_todo(
     // The comment suffix.
     // Eg. "-}" for Haskell, "*/" for Rust.
     suffix: String,
-) -> impl Fn(&str) -> IResult<&str, (Option<&str>, &str, Vec<&str>)> {
+) -> impl Fn(&str) -> IResult<&str, ParsedTodo> {
     let parse_title_desc = title_and_rest_till_eol(borders.clone());
     move |i| {
         let (i, _) = character::space0(i)?;
         let (i, _) = combinator::opt(comment_start(borders.clone(), prefix.clone())).parse(i)?;
         let (i, may_name) = todo_tag(i)?;
+        let may_name = match may_name {
+            None => None,
+            Some(TodoTag::Standard(name)) => Some(name),
+            Some(TodoTag::RustMacro) => {
+                return rust_todo_content(i);
+            }
+        };
         let (i, (title, desc0)) = parse_title_desc(i)?;
         if desc0 == suffix {
-            Ok((i, (may_name, title, vec![])))
+            Ok((
+                i,
+                ParsedTodo {
+                    assignee: may_name,
+                    title,
+                    desc_lines: vec![],
+                },
+            ))
         } else {
             let (i, comment) = bytes::take_until(suffix.as_str())(i)?;
             let (i, _) = bytes::tag(suffix.as_str())(i)?;
@@ -538,7 +639,14 @@ pub fn multi_line_todo(
                 desc_n.push(trimmed_line);
             }
             desc_n.retain(|desc| !desc.is_empty());
-            Ok((i, (may_name, title, desc_n)))
+            Ok((
+                i,
+                ParsedTodo {
+                    assignee: may_name,
+                    title,
+                    desc_lines: desc_n,
+                },
+            ))
         }
     }
 }
@@ -604,11 +712,25 @@ impl ParserConfigLookup {
 }
 
 /// A structure to conveniently hold a fully parsed todo.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ParsedTodo<'a> {
     pub title: &'a str,
     pub assignee: Option<&'a str>,
     pub desc_lines: Vec<&'a str>,
+}
+
+impl<'a> ParsedTodo<'a> {
+    pub fn from_title(title: &'a str) -> Self {
+        ParsedTodo {
+            title,
+            ..Default::default()
+        }
+    }
+
+    pub fn with_desc(mut self, line: &'a str) -> Self {
+        self.desc_lines.push(line);
+        self
+    }
 }
 
 /// Configures a parser to eat a todo from the input.
@@ -639,30 +761,19 @@ pub fn parse_todo<'a>(
     cfg: TodoParserConfig,
 ) -> impl Fn(&'a str) -> IResult<&'a str, ParsedTodo<'a>> {
     move |i| {
-        let to_todo = |(input, todo): (&'a str, (Option<&'a str>, &'a str, Vec<&'a str>))| {
-            Ok((
-                input,
-                ParsedTodo {
-                    title: todo.1,
-                    assignee: todo.0,
-                    desc_lines: todo.2,
-                },
-            ))
-        };
-
         for (prefix, suffix) in cfg.multis.clone() {
-            let res = multi_line_todo(cfg.borders.clone(), prefix, suffix)(i);
-            if let Ok(res) = res {
-                return to_todo(res);
+            if let Ok(res) = multi_line_todo(cfg.borders.clone(), prefix, suffix)(i) {
+                return Ok(res);
             }
         }
 
         for prefix in cfg.singles.clone() {
-            let res = single_line_todo(cfg.borders.clone(), prefix)(i);
-            if let Ok(res) = res {
-                return to_todo(res);
+            if let Ok(res) = single_line_todo(cfg.borders.clone(), prefix)(i) {
+                return Ok(res);
             }
         }
+
+        // Lastly, try a plain
 
         Err(Err::Error(nom::error::Error {
             input: i,

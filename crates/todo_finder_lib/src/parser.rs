@@ -285,11 +285,12 @@ impl IssueMap<(), FileTodoLocation> {
             if ext.is_none() {
                 continue;
             }
-            let ext: &str = ext
+            let ext = ext
                 .expect("impossible!")
                 .to_str()
-                .expect("could not get extension as str");
-            let languages = language_map.get(ext);
+                .expect("could not get extension as str")
+                .to_owned();
+            let languages = language_map.get(&ext);
             if languages.is_none() {
                 Message::UnsupportedFile {
                     path: path.to_path_buf(),
@@ -316,6 +317,7 @@ impl IssueMap<(), FileTodoLocation> {
             let languages = languages.expect("impossible!");
 
             // Open the file and load the contents
+            log::trace!("Reading {path:?}");
             let mut file = tokio::fs::File::open(path).await.context(IoSnafu)?;
             let mut contents = String::new();
             file.read_to_string(&mut contents).await.context(IoSnafu)?;
@@ -331,9 +333,16 @@ impl IssueMap<(), FileTodoLocation> {
                     i = j;
                     current_line += 1;
                 }
+                log::trace!(
+                    "  attempting to parse line {current_line}: '{}'",
+                    i.lines().next().unwrap_or_default()
+                );
 
                 // Try parsing in each language until we get a match
                 for language in languages.iter() {
+                    if language.file_extensions.contains(&ext) {
+                        log::trace!("Extension {ext} matches language {}", language.name);
+                    }
                     let parser_config = language.as_todo_parser_config();
                     let parser = source::parse_todo(parser_config);
                     if let Ok((j, parsed_todo)) = parser(i) {
@@ -409,5 +418,49 @@ impl IssueMap<(), FileTodoLocation> {
         }
 
         lines.join("\n")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::parser::langs::rust_lang;
+
+    #[test]
+    fn rust_todo() {
+        let input = r#"todo!("A special Rust-only todo");"#;
+        let language = rust_lang();
+        let parser_config = language.as_todo_parser_config();
+        let parser = super::source::parse_todo(parser_config);
+
+        let (_i, parsed) = parser(input).unwrap();
+        println!("{parsed:#?}");
+    }
+
+    #[test]
+    fn rust_todo_multi() {
+        let input = r#"todo!(
+            "A special Rust-only todo"
+        );"#;
+        let language = rust_lang();
+        let parser_config = language.as_todo_parser_config();
+        let parser = super::source::parse_todo(parser_config);
+
+        let (_i, parsed) = parser(input).unwrap();
+        println!("{parsed:#?}");
+    }
+
+    #[test]
+    fn rust_todo_multi_multi() {
+        let input = r#"todo!(
+    "A special Rust-only todo on \
+    more than one line, as a multi-line string \
+    that is pretty long."
+);"#;
+        let language = rust_lang();
+        let parser_config = language.as_todo_parser_config();
+        let parser = super::source::parse_todo(parser_config);
+
+        let (_i, parsed) = parser(input).unwrap();
+        println!("{parsed:#?}");
     }
 }

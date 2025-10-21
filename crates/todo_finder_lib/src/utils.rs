@@ -67,6 +67,7 @@ pub async fn get_rg_output(
     args.push(pattern.to_owned());
     args.push(path.to_owned());
 
+    log::trace!("running rg:\nrg {}", args.clone().join(" "));
     let child = tokio::process::Command::new("rg")
         .args(args.clone())
         .stdout(Stdio::piped())
