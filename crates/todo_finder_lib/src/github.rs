@@ -229,6 +229,7 @@ impl Finder {
         let checkout_hash = crate::utils::git_hash().await?;
 
         let local_issues = IssueMap::from_files_in_directory(&self.cwd, &self.excludes).await?;
+
         let remote_issues = self.get_github_issues(owner, repo).await?;
         let patch = remote_issues.prepare_patch(local_issues);
         let create = patch.create.distinct_len();
@@ -258,7 +259,7 @@ impl Finder {
 
             let mut rando_awaits: FuturesUnordered<Pin<Box<dyn Future<Output = ()> + Send>>> =
                 FuturesUnordered::default();
-            for n in 0..create {
+            for n in 1..=create {
                 rando_awaits.push(Box::pin(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(n as u64)).await;
                     Message::AppliedPatchCreate {
@@ -268,7 +269,7 @@ impl Finder {
                     .send();
                 }));
             }
-            for n in 0..update {
+            for n in 1..=update {
                 rando_awaits.push(Box::pin(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(n as u64)).await;
                     Message::AppliedPatchUpdate {
@@ -278,7 +279,7 @@ impl Finder {
                     .send();
                 }));
             }
-            for n in 0..delete {
+            for n in 1..=delete {
                 rando_awaits.push(Box::pin(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(n as u64)).await;
                     Message::AppliedPatchDelete {

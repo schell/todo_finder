@@ -291,7 +291,6 @@ impl IssueMap<(), FileTodoLocation> {
                 .expect("could not get extension as str");
             let languages = language_map.get(ext);
             if languages.is_none() {
-                // TODO: Deadletter the file name as unsupported
                 Message::UnsupportedFile {
                     path: path.to_path_buf(),
                     todo: format!(
