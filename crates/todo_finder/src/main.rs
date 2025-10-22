@@ -26,6 +26,7 @@ struct GitHubProvider {
 }
 
 impl GitHubProvider {
+    #[allow(unused_mut)]
     fn should_simulate_application(&self) -> bool {
         let mut should_simulate_application = false;
         #[cfg(debug_assertions)]
@@ -76,6 +77,7 @@ struct Printer {
     blue: Style,
     green: Style,
     dim: Style,
+    is_markdown: bool,
     _multi_progress: MultiProgress,
     found_todos_progress: ProgressBar,
     fetching_issues_progress: ProgressBar,
@@ -115,6 +117,7 @@ impl Default for Printer {
             blue,
             green,
             dim,
+            is_markdown: true,
             _multi_progress: multi_progress,
             found_todos_progress,
             fetching_issues_progress,
@@ -173,8 +176,12 @@ impl Printer {
             } => {
                 self.found_todos_progress.finish_and_clear();
                 eprintln!("Found {distinct} distinct TODOs out of {total} total:\n",);
-                let markdown_style = Style::new().dim();
-                println!("{}", markdown_style.apply_to(markdown_text));
+                if !self.is_markdown {
+                    // Only print the markdown when it wouldn't otherwise be printed
+                    // or saved to a file
+                    let markdown_style = Style::new().dim();
+                    println!("{}", markdown_style.apply_to(markdown_text));
+                }
             }
 
             GettingIssues => {
@@ -307,16 +314,21 @@ async fn main() {
 
     eprintln!("🌈 Starting todo_finder...");
 
+    let mut printer = Printer::default();
     let handle = match provider {
-        IssueProvider::Markdown => tokio::task::spawn(async move {
-            let issues = IssueMap::from_files_in_directory(&cwd_str, &exclude)
-                .await
-                .unwrap();
-            let markdown = issues.as_markdown();
-            println!("{markdown}")
-        }),
+        IssueProvider::Markdown => {
+            printer.is_markdown = true;
+            tokio::task::spawn(async move {
+                let issues = IssueMap::from_files_in_directory(&cwd_str, &exclude)
+                    .await
+                    .unwrap();
+                let markdown = issues.as_markdown();
+                println!("{markdown}")
+            })
+        }
 
         IssueProvider::Github(gh) => {
+            printer.is_markdown = false;
             let simulate_application = gh.should_simulate_application();
             let finder = github::run(
                 gh.auth,
@@ -332,5 +344,5 @@ async fn main() {
     };
 
     // While the finder is working, print the messages to the terminal
-    Printer::default().message_loop(handle).await;
+    printer.message_loop(handle).await;
 }
