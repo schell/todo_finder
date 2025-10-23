@@ -106,7 +106,7 @@ mod tests {
         assert_eq!(
             vec![PossibleTodosInFile {
                 file: "test_data/one.rs".into(),
-                lines_to_search: vec![33, 34, 37],
+                lines_to_search: vec![33, 34, 38],
             }],
             files,
         )

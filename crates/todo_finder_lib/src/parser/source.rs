@@ -305,8 +305,9 @@ pub enum TodoTag<'a> {
     RustMacro,
 }
 
-/// Eat a todo tag. Currently supports `TODO`, `FIXME` and `@todo`.
-/// It will also eat any assigned name following the todo tag and return it.
+/// Eat a todo tag. Currently supports `TODO`, `FIXME`, `@todo` and `todo!`.
+/// It will also eat and return any assigned name following the todo tag, with
+/// the exception of a `todo!`, which contains the title instead of an assignee.
 ///
 /// ```rust
 /// use nom::{multi, Parser};
@@ -316,19 +317,19 @@ pub enum TodoTag<'a> {
 /// assert_eq!(todo_tag("TODO "), Ok(("", None)));
 /// assert_eq!(todo_tag("TODO"), Ok(("", None)));
 /// assert_eq!(todo_tag("FIXME"), Ok(("", None)));
-/// assert_eq!(todo_tag("todo!"), Ok(("", None)));
+/// assert_eq!(todo_tag("todo!"), Ok(("", Some(TodoTag::RustMacro))));
 ///
 /// let all_text = r#"TODO(schell) FIXME (mitchellwrosen) @todo(imalsogreg) todo!("blah")"#;
 /// let parsed = multi::many1(|i| todo_tag(i)).parse(all_text);
 /// assert_eq!(
 ///     parsed,
 ///     Ok((
-///         "",
+///         r#"("blah")"#,
 ///         vec![
 ///             Some(TodoTag::Standard("schell")),
 ///             Some(TodoTag::Standard("mitchellwrosen")),
 ///             Some(TodoTag::Standard("imalsogreg")),
-///             Some(TodoTag::RustMacro(r#""blah""#))
+///             Some(TodoTag::RustMacro)
 ///         ]
 ///     ))
 /// );
